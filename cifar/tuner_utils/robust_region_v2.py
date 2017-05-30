@@ -228,22 +228,22 @@ def train_rave_noisy_acc(mon_sess, model_eval, num_iter, lr_val, mom_val,
             plt.savefig(log_dir + "/fig_hyper_iter_" + str(iter_id) + ".pdf")
             plt.close()
             
-#         if iter_id % test_interval == 0 and iter_id != 0:
-#             print "start test "
-#             # do evaluation on whole test set
-#             best_precision = evaluate(mon_sess, model_eval, best_precision, n_batch=50)
-#             precision_list.append(best_precision)
-#             print "best precision %.6f" % best_precision
+        if iter_id % test_interval == 0 and iter_id != 0:
+            print "start test "
+            # do evaluation on whole test set
+            best_precision = evaluate(mon_sess, model_eval, best_precision, n_batch=50)
+            precision_list.append(best_precision)
+            print "best precision %.6f" % best_precision
 
-#             plt.figure()
-#             plt.plot(test_interval * np.arange(len(precision_list) ), np.array(precision_list) )
-#             plt.title("Test precision " + str(best_precision) )
-#             plt.ylim( [0, 1] )
-#             plt.savefig(log_dir + "/fig_acc.png")
-#             plt.close()
+            plt.figure()
+            plt.plot(test_interval * np.arange(len(precision_list) ), np.array(precision_list) )
+            plt.title("Test precision " + str(best_precision) )
+            plt.ylim( [0, 1] )
+            plt.savefig(log_dir + "/fig_acc.png")
+            plt.close()
 
-#             with open(log_dir + "/test_acc.txt", "w") as f:
-#                 np.savetxt(f, np.array(precision_list) )
+            with open(log_dir + "/test_acc.txt", "w") as f:
+                np.savetxt(f, np.array(precision_list) )
 
     return loss_list, g_norm_list
 

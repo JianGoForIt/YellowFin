@@ -44,7 +44,6 @@ def setup(hps_train, hps_eval, gpu_mem_portion, DEV, DATASET, TRAIN_DATA_PATH, T
     # use the train for the scope name just for reuse the variable
     with tf.variable_scope("train", reuse=True), tf.device(DEV):
         model_eval = get_model(hps_eval, DATASET, TEST_DATA_PATH, mode='eval')
-    # model_eval = None
 
     init_op = tf.global_variables_initializer()
     mon_sess = GetTrainingSession(model_train, gpu_mem_portion=gpu_mem_portion)

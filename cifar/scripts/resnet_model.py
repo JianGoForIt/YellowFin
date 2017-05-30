@@ -32,9 +32,9 @@ from tensorflow.python.training import moving_averages
 # sys.path.append('../tuner_utils')
 # from robust_region_adagrad_per_layer import *
 # from yellow_fin import *
-# sys.path.append('../../../../tuner_utils')
-sys.path.append('/lfs/local/0/zjian2/tuner/tuner_utils')
-from yellowfin_efficient import *
+sys.path.append('../../tuner_utils')
+# sys.path.append('/lfs/local/0/zjian2/tuner/tuner_utils')
+from yellowfin import *
 
 
 HParams = namedtuple('HParams',
@@ -135,66 +135,66 @@ class ResNet(object):
 
       tf.summary.scalar('cost', self.cost)
 
+#   def _build_train_op(self):
+#     """Build training specific ops for the graph."""
+#     self.lrn_rate = tf.constant(self.hps.lrn_rate, tf.float32)
+#     tf.summary.scalar('learning_rate', self.lrn_rate)
+
+#     # trainable_variables = tf.trainable_variables()
+#     self.trainable_variables =  tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.hps.model_scope)
+#     self.grads = tf.gradients(self.cost, self.trainable_variables)
+
+#     if self.hps.optimizer == 'sgd':
+#       optimizer = tf.train.GradientDescentOptimizer(self.lrn_rate)
+#       apply_op = optimizer.apply_gradients(
+#         zip(self.grads, self.trainable_variables),
+#         global_step=self.global_step, name='train_step')
+#     elif self.hps.optimizer == 'mom':
+#       optimizer = tf.train.MomentumOptimizer(self.lrn_rate, 0.9)
+#       apply_op = optimizer.apply_gradients(
+#         zip(self.grads, self.trainable_variables),
+#         global_step=self.global_step, name='train_step')
+#     elif self.hps.optimizer == 'YF':
+#       print "using YF"
+#       self.optimizer = YFOptimizer()
+#       apply_op = self.optimizer.apply_gradients(
+#         zip(self.grads, self.trainable_variables) )
+
+#     train_ops = [apply_op] + self._extra_train_ops
+#     self.train_op = tf.group(*train_ops)
+
+
   def _build_train_op(self):
     """Build training specific ops for the graph."""
-    self.lrn_rate = tf.constant(self.hps.lrn_rate, tf.float32)
-    tf.summary.scalar('learning_rate', self.lrn_rate)
+    # self.lrn_rate = tf.constant(self.hps.lrn_rate, tf.float32)
+    # self.lrn_rate = tf.Variable(self.hps.lrn_rate, trainable=False, dtype=tf.float32)
+    # self.mom = tf.Variable(self.hps.mom, trainable=False, dtype=tf.float32)
+    # self.clip_norm = tf.Variable(self.hps.clip_norm_base / self.hps.lrn_rate, trainable=False, dtype=tf.float32)
+    self.lrn_rate = tf.placeholder(tf.float32, shape=[] )
+    self.mom = tf.placeholder(tf.float32, shape=[] )
+    self.clip_norm = tf.placeholder(tf.float32, shape=[] )
 
-    # trainable_variables = tf.trainable_variables()
+    # tf.summary.scalar('learning rate', self.lrn_rate)
+
     self.trainable_variables =  tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.hps.model_scope)
     self.grads = tf.gradients(self.cost, self.trainable_variables)
+    self.grads_clip, self.global_norm = tf.clip_by_global_norm(self.grads, self.clip_norm)
+    
+    if "meta" not in self.hps.optimizer:
+      if self.hps.optimizer == 'sgd':
+        optimizer = tf.train.GradientDescentOptimizer(self.lrn_rate)
+      elif self.hps.optimizer == 'mom':
+        optimizer = tf.train.MomentumOptimizer(self.lrn_rate, self.mom)
+      elif self.hps.optimizer == 'adam':
+        print "adam optimizer"
+        optimizer = tf.train.AdamOptimizer(self.lrn_rate)
 
-    if self.hps.optimizer == 'sgd':
-      optimizer = tf.train.GradientDescentOptimizer(self.lrn_rate)
-      apply_op = optimizer.apply_gradients(
-        zip(self.grads, self.trainable_variables),
+    apply_op = optimizer.apply_gradients(
+        zip(self.grads_clip, self.trainable_variables),
         global_step=self.global_step, name='train_step')
-    elif self.hps.optimizer == 'mom':
-      optimizer = tf.train.MomentumOptimizer(self.lrn_rate, 0.9)
-      apply_op = optimizer.apply_gradients(
-        zip(self.grads, self.trainable_variables),
-        global_step=self.global_step, name='train_step')
-    elif self.hps.optimizer == 'YF':
-      print "using YF"
-      self.optimizer = YFOptimizerUnit()
-      apply_op = self.optimizer.apply_gradients(
-        zip(self.grads, self.trainable_variables) )
 
     train_ops = [apply_op] + self._extra_train_ops
     self.train_op = tf.group(*train_ops)
-
-
-  # def _build_train_op(self):
-  #   """Build training specific ops for the graph."""
-  #   # self.lrn_rate = tf.constant(self.hps.lrn_rate, tf.float32)
-  #   # self.lrn_rate = tf.Variable(self.hps.lrn_rate, trainable=False, dtype=tf.float32)
-  #   # self.mom = tf.Variable(self.hps.mom, trainable=False, dtype=tf.float32)
-  #   # self.clip_norm = tf.Variable(self.hps.clip_norm_base / self.hps.lrn_rate, trainable=False, dtype=tf.float32)
-  #   self.lrn_rate = tf.placeholder(tf.float32, shape=[] )
-  #   self.mom = tf.placeholder(tf.float32, shape=[] )
-  #   self.clip_norm = tf.placeholder(tf.float32, shape=[] )
-
-  #   # tf.summary.scalar('learning rate', self.lrn_rate)
-
-  #   self.trainable_variables =  tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.hps.model_scope)
-  #   self.grads = tf.gradients(self.cost, self.trainable_variables)
-  #   self.grads_clip, self.global_norm = tf.clip_by_global_norm(self.grads, self.clip_norm)
-    
-  #   if "meta" not in self.hps.optimizer:
-  #     if self.hps.optimizer == 'sgd':
-  #       optimizer = tf.train.GradientDescentOptimizer(self.lrn_rate)
-  #     elif self.hps.optimizer == 'mom':
-  #       optimizer = tf.train.MomentumOptimizer(self.lrn_rate, self.mom)
-  #     elif self.hps.optimizer == 'adam':
-  #       print "adam optimizer"
-  #       optimizer = tf.train.AdamOptimizer(self.lrn_rate)
-
-  #   apply_op = optimizer.apply_gradients(
-  #       zip(self.grads_clip, self.trainable_variables),
-  #       global_step=self.global_step, name='train_step')
-
-  #   train_ops = [apply_op] + self._extra_train_ops
-  #   self.train_op = tf.group(*train_ops)
 
 
   # TODO(xpan): Consider batch_norm in contrib/layers/python/layers/layers.py

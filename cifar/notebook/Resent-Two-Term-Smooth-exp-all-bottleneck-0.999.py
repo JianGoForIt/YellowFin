@@ -83,7 +83,7 @@ def train_single_step_frame(sess, model_train, lr_val, mom_val, clip_norm_base):
     loss = output_results[0]
     grad_norm = output_results[1]
     grads = output_results[2:(2 + len(model_train.grads) ) ]
-    return grads, grad_norm, loss
+    return grads, loss
 
 
 # ### set up path and other parameters
@@ -91,8 +91,8 @@ def train_single_step_frame(sess, model_train, lr_val, mom_val, clip_norm_base):
 # In[8]:
 
 NUM_CLASSES = 100
-TRAIN_DATA_PATH = '../../../cifar-100-binary/train.bin'
-TEST_DATA_PATH = '../../../cifar-100-binary/test.bin'
+TRAIN_DATA_PATH = '../../data/cifar-100-binary/train.bin'
+TEST_DATA_PATH = '../../data/cifar-100-binary/test.bin'
 MODE = 'train'
 LOG_ROOT='../results/resnet_model'
 DATASET='cifar100'
