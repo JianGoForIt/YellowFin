@@ -152,7 +152,7 @@ general_log_dir = "../results"
 # In[11]:
 
 num_step = 70001
-display_interval=5000
+display_interval=2500
 test_interval=1000 # no test
 clip_norm_base = 100.0
 # the following a few params are all dummy and placeholder
