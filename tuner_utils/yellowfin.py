@@ -6,16 +6,8 @@ from tensorflow.python.ops import variable_scope
 from tensorflow.python.ops import variables
 from tensorflow.python.framework import ops
 
-# import matplotlib
-# matplotlib.use('Agg')
-# import matplotlib.pyplot as plt
 
-def running_mean(x, N):
-  cumsum = np.cumsum(np.insert(x, 0, 0)) 
-  return (cumsum[N:] - cumsum[:-N]) / N 
-
-
-class YFOptimizerUnit(object):
+class YFOptimizer(object):
   def __init__(self, lr=1.0, mu=0.0, clip_thresh=10000.0, beta=0.999, curv_win_width=20,
     mu_update_interval=1, use_async=False):
     # clip thresh is the threshold value on ||lr * gradient||
@@ -48,19 +40,6 @@ class YFOptimizerUnit(object):
     # for curvature range
     self._curv_win_width = curv_win_width
     self._curv_win = None
-
-
-  def setup_slots(self):
-    for tvar in self._tvars:
-      # self._optimizer._zeros_slot(tvar, "grad squared t", self._optimizer._name)
-      if self._use_async:
-        # we setup momentum slot in advance, and the original momentum creation will
-        # check the existence and keep the one here
-        self._optimizer._zeros_slot(tvar, "momentum", self._optimizer._name)
-        self._optimizer._zeros_slot(tvar, "momentum_delay", self._optimizer._name)
-        self._optimizer._zeros_slot(tvar, "momentum_diff", self._optimizer._name)
-        self._optimizer._zeros_slot(tvar, "grad", self._optimizer._name)
-    return
 
 
   def before_apply(self):
@@ -203,7 +182,6 @@ class YFOptimizerUnit(object):
 
   def apply_gradients(self, grads_tvars):
     self._grads, self._tvars = zip(*grads_tvars)
-    self.setup_slots()
 
     # with tf.control_dependencies(pop_ops):
     with tf.variable_scope("before_apply"):
@@ -228,328 +206,38 @@ class YFOptimizerUnit(object):
       self._increment_global_step_op = tf.assign(self._global_step, self._global_step + 1)
 
     return tf.group(before_apply_op, apply_grad_op, after_apply_op, update_hyper_op, self._increment_global_step_op)
-    
-
-#   def after_apply_async(self):
-#     '''
-#     It has to be called after after_apply()
-#     '''
-#     if self._moving_averager == None:
-#         self._moving_averager = tf.train.ExponentialMovingAverage(decay=self._gamma)
-#     # keep moving average momentum
-#     after_apply_ops = []
-#     # note here we get the negative of our definition of momentum
-#     self._momentum = [self._optimizer.get_slot(tvar, "momentum") for tvar in self._tvars]
-#     ave_op = self._moving_averager.apply(self._momentum)
-#     self._moving_momentum = [self._moving_averager.average(v) for v in self._momentum]
-#     with tf.control_dependencies( [ave_op] ):
-#       if len(self._moving_momentum) == 1:
-#         self._moving_momentum = tf.reshape(self._moving_momentum[0], [-1] )
-#       else:
-#         self._moving_momentum = tf.concat(0, [tf.reshape(v, [-1] ) for v in self._moving_momentum] )
-#       # if len(self._moving_momentum) == 1:
-#       #   self._moving_momentum = tf.reshape(self._momentum[0], [-1] )
-#       # else:
-#       #   self._moving_momentum = tf.concat(0, [tf.reshape(v, [-1] ) for v in self._momentum] )
-
-
-#     after_apply_ops.append(ave_op)
-
-#     # DEBUG
-#     self.test_momentum = []
-#     self.test_momentum_delay = []
-#     self.test_momentum_diff = []
-
-#     # keep track of the momentum difference
-#     diff_ops = []
-#     for tvar in self._tvars:
-#       momentum = self._optimizer.get_slot(tvar, "momentum")
-
-#       # # DEBUG
-#       # if tvar.name == self._tvars[0].name:
-#       #   momentum = tf.Print(momentum, [momentum, ], message="momentum[0]")
-
-#       momentum_delay = self._optimizer.get_slot(tvar, "momentum_delay")
-#       momentum_diff = self._optimizer.get_slot(tvar, "momentum_diff")
-
-
-#       # if tvar.name == self._tvars[0].name:
-#       #   momentum = tf.Print(momentum, [momentum, ], message="momentum")
-#       #   momentum_delay = tf.Print(momentum_delay, [momentum_delay, ], message="momentum_delay")
-
-#       # note here, we are using the tf definition of momentum which is the 
-#       # negative of our definition of momentum
-#       diff_op = tf.assign(momentum_diff, momentum - momentum_delay)
-
-
-#       # DEBUG
-#       self.test_momentum.append(momentum)
-#       self.test_momentum_delay.append(momentum_delay)
-#       self.test_momentum_diff.append(momentum_diff)
-
-#       diff_ops.append(diff_op)
-#     after_apply_ops += diff_ops
-#     self._momentum_diff = [self._optimizer.get_slot(tvar, "momentum_diff") for tvar in self._tvars]
-#     with tf.control_dependencies(diff_ops):
-#       ave_op = self._moving_averager.apply(self._momentum_diff)
-#     self._moving_momentum_diff = [self._moving_averager.average(v) for v in self._momentum_diff] 
-#     with tf.control_dependencies( [ave_op] ):
-#       if len(self._moving_momentum_diff) == 1:
-#         self._moving_momentum_diff = tf.reshape(self._moving_momentum_diff[0], [-1] )
-#       else:
-#         self._moving_momentum_diff = tf.concat(0, [tf.reshape(v, [-1] ) for v in self._moving_momentum_diff] )
-      
-#       # if len(self._moving_momentum_diff) == 1:
-#       #   self._moving_momentum_diff = tf.reshape(self._momentum_diff[0], [-1] )
-#       # else:
-#       #   self._moving_momentum_diff = tf.concat(0, [tf.reshape(v, [-1] ) for v in self._momentum_diff] )
-
-
-#     after_apply_ops.append(ave_op)
-
-#     # keep track of gradient, the moving grad to server is on server
-#     # _gradient to distinguish from self._grad
-#     grad_assign_ops = [tf.assign(self._optimizer.get_slot(tvar, "grad"), grad) for tvar, grad in zip(self._tvars, self._grads) ]
-#     with tf.control_dependencies(grad_assign_ops):
-#       self._gradients = [self._optimizer.get_slot(tvar, "grad") for tvar in self._tvars]
-#       moving_grad_op = self._moving_averager.apply(self._gradients)
-#       self._moving_grad = [self._moving_averager.average(v) for v in self._gradients]
-#     with tf.control_dependencies( [moving_grad_op] ):
-#       if len(self._moving_grad) == 1:
-#         self._moving_grad = tf.reshape(self._moving_grad, [-1] )
-#       else:
-#         self._moving_grad = tf.concat(0, [tf.reshape(v, [-1] ) for v in self._moving_grad] )
-#       # if len(self._moving_grad) == 1:
-#       #   self._moving_grad = tf.reshape(self._grad, [-1] )
-#       # else:
-#       #   self._moving_grad = tf.concat(0, [tf.reshape(v, [-1] ) for v in self._gradients] )
-
-#     after_apply_ops += grad_assign_ops
-#     after_apply_ops.append(moving_grad_op)
-      
-#     return tf.group(*after_apply_ops)
-
-
-#   # def get_lr_tensor(self):
-#   #   grad_squared_per_var_sum = [tf.reduce_sum(self._optimizer.get_slot(tvar, "grad_squared_accum") ) for tvar in self._tvars]
-#   #   grad_squared_sum = tf.add_n(grad_squared_per_var_sum)
-    
-#   #   # # DEBUG
-#   #   # self.grad_squared_sum = grad_squared_sum
-#   #   # grad_squared_sum = tf.Print(grad_squared_sum, [grad_squared_sum], message="inside denominator")
-#   #   self.grad_squared_sum = grad_squared_sum
-#   #   print "check alpha ", self._alpha
-    
-#   #   lr = self._alpha * tf.minimum(1.0/tf.constant(self._slow_start_iters, tf.float32) \
-#   #      + 1.0/tf.constant(self._slow_start_iters, tf.float32) * tf.cast(self._global_step, tf.float32),
-#   #      tf.constant(1.0, tf.float32) ) / tf.sqrt(grad_squared_sum + 1e-6) 
-    
-#   #   # lr = self._alpha / tf.sqrt(grad_squared_sum + 1e-6) 
-
-#   #   return lr
-
-
-#   def get_async_mu_tensor(self):
-#     '''
-#     Called after setup_moving_average
-#     '''
-#     moving_momentum = self._moving_momentum
-#     moving_momentum_diff = self._moving_momentum_diff
-#     moving_grad = self._moving_grad
-
-
-#     # self.test_moving_momentum = moving_momentum
-
-#     # #DEBUG
-#     # moving_momentum = tf.Print(moving_momentum, [moving_momentum, ], message="moving mom")
-#     # moving_momentum_diff = tf.Print(moving_momentum_diff, [moving_momentum_diff, ], message="moving mom diff")
-#     # moving_grad = tf.Print(moving_grad, [moving_grad, ], message="moving grad")
-
-
-#     n_dim = moving_momentum.get_shape().as_list()[0]
-#     median_id = n_dim / 2
-#     # note here we negate the moving average of momentum and momentum difference
-#     # In addition, the momentum here is actually momentum / lr
-#     # Thus the denominator  (-moving_momentum + self.lr_var * moving_grad) in our definition
-#     # is  (-moving_momentum + moving_grad) using tensorflow momentum definition
-#     mu_array = (-moving_momentum + moving_grad) / (-moving_momentum + moving_momentum_diff + 1e-9)
-
-#     # DEBUG
-#     # self.mu_array = tf.Print(mu_array, [mu_array, ], message="mu_array")
-#     self.mu_array = mu_array
-
-#     median_all, _ = tf.nn.top_k(mu_array, k=max(median_id, 1) , sorted=True)
-#     mu_async = median_all[max(median_id - 1, 0) ]
-    
-#     # DEBUG
-#     mu_async = tf.Print(mu_async, [mu_async, ], message="mu_async")
-
-#     return mu_async
-
-
-#   def assign_hyper_param(self, lr_val, mu_val, clip_thresh_val):
-#     lr_op = self.lr_var.assign(lr_val)
-#     mu_op = self.mu_var.assign(mu_val)
-#     clip_thresh_op = self.clip_thresh_var.assign(clip_thresh_val / float(lr_val) )
-#     self.lr_val = lr_val
-#     self.mu_val = mu_val
-#     self.clip_thresh_val = clip_thresh_val
-#     return tf.group(lr_op, mu_op, clip_thresh_op)
-
-
-#   def assign_hyper_param_value(self, lr_val, mu_val, clip_thresh_val):
-#     self.lr_val = lr_val
-#     # TODO change back
-#     self.mu_val = mu_val
-#     # self.mu_val = 0.0
-#     self.clip_thresh_val = clip_thresh_val
-#     return 
-
-
-#   def get_min_max_curvatures(self):
-#     all_curvatures = self._curv_list
-#     t=len(all_curvatures)
-#     W=10
-#     start = max([0,t-W])
-#     max_curv=max(all_curvatures[start:t])
-#     min_curv=min(all_curvatures[start:t])
-#     return max_curv, min_curv
-
-
-#   def set_alpha(self, alpha):
-#     self._alpha = alpha
-
-
-#   def set_slow_start_iters(self, slow_start_iters):
-#     self._slow_start_iters = slow_start_iters
-
-    
-#   def get_lr(self):
-#     # lr = self._alpha / np.sqrt(sum(self._curv_list) + 1e-6)
-#     # lr = self._alpha *(min([1.0, 1/float(np.sqrt(self._slow_start_iters) )**2+1/float(np.sqrt(self._slow_start_iters) )**2*self._iter_id] ) ) / np.sqrt(sum(self._curv_list) + 1e-6)
-#     lr = self._alpha *(min([1.0, 1/float(self._slow_start_iters)+1/float(self._slow_start_iters)*self._iter_id] ) ) / np.sqrt(sum(self._curv_list) + 1e-6)
-#     return lr
-
-
-#   def get_mu(self):
-#     high_pct = self._high_pct
-#     low_pct = self._low_pct
-#     pct_max = np.percentile(self._grad_sum_square[self._grad_sum_square != 0], high_pct)
-#     pct_min = np.percentile(self._grad_sum_square[self._grad_sum_square != 0], low_pct) 
-#     dr = np.sqrt(pct_max / (pct_min + 1e-9) ) 
-#     mu = ( (np.sqrt(dr) - 1) / (np.sqrt(dr) + 1) )**2
-#     return dr, mu
-
-
-#   def on_iter_finish(self, sess, grad_vals, use_hyper_op=False):
         
-#     # res = sess.run( [self.lr_var, self.mu_var, self._mu_async, self._mu_sync] )
-#     res = sess.run( [self.lr_var, self.mu_var] )
-#     self._lr_list.append(res[0] )
-#     self._mu_list.append(res[1] )
-#     # self._mu_async_list.append(res[2] )
-#     # self._mu_sync_list.append(res[3] )
-#     self.lr_val = res[0]
-#     self.mu_val = res[1]
 
-#     # self._accum_grad_squared_list.append(res[2] )
-# #     # print "inside ", res[2]
-    
-    
-#     # i = self._iter_id + 1
-#     # w = i**(-1.0)
-#     # beta_poly = w
-#     # gamma = self._gamma
+  # def plot_curv(self, log_dir='./'):            
+  #   plt.figure()
+  #   # # plt.semilogy(self._lr_grad_list, label="lr * grad")
+  #   # # plt.semilogy(self._max_curv_list, label="max curv for clip")
+  #   # # plt.semilogy(self._clip_list, label="clip thresh")
+  #   # plt.semilogy(self._accum_grad_squared_list, label="denominator")
+  #   # plt.semilogy(self._curv_list, label="clip curvature")
+  #   plt.semilogy(self._lr_list, label="lr")
+  #   plt.semilogy(self._mu_list, label="mu")
+  #   plt.semilogy(self._mu_async_list, label="async_mu")
+  #   plt.semilogy(self._mu_sync_list, label="sync_mu")
 
-#     # # in case there are sparse gradient strutures
-#     # for i, item in enumerate(grad_vals):
-#     #   if type(item) is not np.ndarray:
-#     #     tmp = np.zeros(item.dense_shape)
-#     #     # note here we have duplicated vectors corresponding to the same word
-#     #     np.add.at(tmp, item.indices, item.values)
-#     #     grad_vals[i] = tmp.copy()
-
-#     # grad_sum_square_new = np.hstack( [val.ravel()**2 for val in grad_vals] )
-#     # self._curv_list.append(np.sum(grad_sum_square_new) )    
-
-#     # # this max_curv_new is for clipping
-#     # max_curv_new, _ = self.get_min_max_curvatures()
-#     # # update 
-#     # if self._max_curv == None:
-#     #     self._max_curv = max_curv_new
-#     # else:
-#     #     self._max_curv = (beta_poly**gamma)*max_curv_new + (1-beta_poly**gamma)*self._max_curv
-#     # if self._grad_sum_square is None:
-#     #   self._grad_sum_square = grad_sum_square_new 
-#     # else:
-#     #   self._grad_sum_square += grad_sum_square_new
-    
-#     # if self._iter_id % self._mu_update_interval == 0 and self._iter_id > 0:
-#     #   dr, mu_val = self.get_mu()
-#     #   self._dr_list.append(dr)
-#     # else:
-#     #   mu_val = self.mu_val
-#     # if self._iter_id >= 0:
-#     #     lr_val = self.get_lr()
-#     # else:
-#     #   lr_val = self.lr_val
-
-#     # clip_thresh_val = lr_val * np.sqrt(self._max_curv)
-            
-#     # # TODO tidy up capping operation
-#     # if use_hyper_op:
-#     #   hyper_op = self.assign_hyper_param(lr_val, min(mu_val, 0.9), min(clip_thresh_val, 1.0) )
-#     # else:
-#     #   self.assign_hyper_param_value(lr_val, min(mu_val, 0.9), min(clip_thresh_val, 1.0) )
-
-#     # self._max_curv_list.append(self._max_curv)
-#     # self._lr_list.append(lr_val)
-#     # self._mu_list.append(min(mu_val, 0.9) )
-#     # self._lr_grad_list.append(lr_val * np.sqrt(self._curv_list[-1] ) )
-#     # # clip_list monitor thresh over lr * clip_thresh
-#     # self._clip_list.append(min(clip_thresh_val, 1.0) )
-
-#     self._iter_id += 1
-    
-#     # if use_hyper_op:
-#     #   return hyper_op
-#     # else:
-#     #   return
-    
-#     # # pass
-#     return
-    
-
-  def plot_curv(self, log_dir='./'):            
-    plt.figure()
-    # # plt.semilogy(self._lr_grad_list, label="lr * grad")
-    # # plt.semilogy(self._max_curv_list, label="max curv for clip")
-    # # plt.semilogy(self._clip_list, label="clip thresh")
-    # plt.semilogy(self._accum_grad_squared_list, label="denominator")
-    # plt.semilogy(self._curv_list, label="clip curvature")
-    plt.semilogy(self._lr_list, label="lr")
-    plt.semilogy(self._mu_list, label="mu")
-    plt.semilogy(self._mu_async_list, label="async_mu")
-    plt.semilogy(self._mu_sync_list, label="sync_mu")
-
-    plt.title('LR='+str(self._lr_list[-1] )+' mu='+str(self._mu_list[-1] ) )
-    plt.xlabel("iteration")
-    plt.grid()
-    ax = plt.subplot(111)
-    ax.legend(loc='lower left', 
-            ncol=2, fancybox=True, shadow=True)
-    plt.savefig(log_dir + "/fig_" + str(self._id) + ".png")
-    plt.close()
-    # save monitoring quantities
-    with open(log_dir + "/lr_grad_" + str(self._id) + ".txt", "w") as f:
-        np.savetxt(f, np.array(self._lr_grad_list) )
-    with open(log_dir + "/max_curv_" + str(self._id) + ".txt", "w") as f:
-        np.savetxt(f, np.array(self._max_curv_list) )
-    with open(log_dir + "/clip_thresh_" + str(self._id) + ".txt", "w") as f:
-        np.savetxt(f, np.array(self._clip_list) )
-    with open(log_dir + "/lr_" + str(self._id) + ".txt", "w") as f:
-        np.savetxt(f, np.array(self._lr_list) )
-    with open(log_dir + "/mu_" + str(self._id) + ".txt", "w") as f:
-        np.savetxt(f, np.array(self._mu_list) )  
-    with open(log_dir + "/mu_" + str(self._id) + ".txt", "w") as f:
-        np.savetxt(f, np.array(self._dr_list) )
+  #   plt.title('LR='+str(self._lr_list[-1] )+' mu='+str(self._mu_list[-1] ) )
+  #   plt.xlabel("iteration")
+  #   plt.grid()
+  #   ax = plt.subplot(111)
+  #   ax.legend(loc='lower left', 
+  #           ncol=2, fancybox=True, shadow=True)
+  #   plt.savefig(log_dir + "/fig_" + str(self._id) + ".png")
+  #   plt.close()
+  #   # save monitoring quantities
+  #   with open(log_dir + "/lr_grad_" + str(self._id) + ".txt", "w") as f:
+  #       np.savetxt(f, np.array(self._lr_grad_list) )
+  #   with open(log_dir + "/max_curv_" + str(self._id) + ".txt", "w") as f:
+  #       np.savetxt(f, np.array(self._max_curv_list) )
+  #   with open(log_dir + "/clip_thresh_" + str(self._id) + ".txt", "w") as f:
+  #       np.savetxt(f, np.array(self._clip_list) )
+  #   with open(log_dir + "/lr_" + str(self._id) + ".txt", "w") as f:
+  #       np.savetxt(f, np.array(self._lr_list) )
+  #   with open(log_dir + "/mu_" + str(self._id) + ".txt", "w") as f:
+  #       np.savetxt(f, np.array(self._mu_list) )  
+  #   with open(log_dir + "/mu_" + str(self._id) + ".txt", "w") as f:
+  #       np.savetxt(f, np.array(self._dr_list) )

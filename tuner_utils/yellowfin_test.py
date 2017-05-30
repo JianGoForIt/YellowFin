@@ -2,7 +2,7 @@ import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 import tensorflow as tf
 import numpy as np
-from yellowfin_efficient import YFOptimizerUnit
+from yellowfin import YFOptimizer
 from tensorflow.python.ops import variables
 
 
@@ -44,7 +44,7 @@ def tune_everything(x0squared, C, T, gmin, gmax):
 
 
 def test_measurement():
-	opt = YFOptimizerUnit()
+	opt = YFOptimizer()
 	w = tf.Variable(np.ones([n_dim, ] ), dtype=tf.float32, name="w", trainable=True)
 	b = tf.Variable(np.ones([1, ], dtype=np.float32), dtype=tf.float32, name="b", trainable=True)
 	x = tf.constant(np.ones([n_dim, ], dtype=np.float32), dtype=tf.float32)
@@ -80,8 +80,8 @@ def test_measurement():
 			target_var = g_norm_squared_avg - g_avg**2 * (n_dim + 1)
 			target_dist = 0.999 * target_dist + 0.001 * g_norm_avg / g_norm_squared_avg
 
-			print "iter ", i, " h max ", res[1], target_h_max, " h min ", res[2], target_h_min, \
-			 	" var ", res[3], target_var, " dist ", res[4], target_dist
+			# print "iter ", i, " h max ", res[1], target_h_max, " h min ", res[2], target_h_min, \
+			#  	" var ", res[3], target_var, " dist ", res[4], target_dist
 			assert np.abs(target_h_max - res[1] ) < np.abs(target_h_max) * 1e-3
 			assert np.abs(target_h_min - res[2] ) < np.abs(target_h_min) * 1e-3
 			assert np.abs(target_var - res[3] ) < np.abs(res[3] ) * 1e-3
@@ -90,7 +90,7 @@ def test_measurement():
 
 
 def test_lr_mu():
-	opt = YFOptimizerUnit()
+	opt = YFOptimizer()
 	w = tf.Variable(np.ones([n_dim, ] ), dtype=tf.float32, name="w", trainable=True)
 	b = tf.Variable(np.ones([1, ], dtype=np.float32), dtype=tf.float32, name="b", trainable=True)
 	x = tf.constant(np.ones([n_dim, ], dtype=np.float32), dtype=tf.float32)
@@ -139,9 +139,9 @@ def test_lr_mu():
 				target_lr = 0.999 * target_lr + 0.001 * lr
 				target_mu = 0.999 * target_mu + 0.001 * mu
 
-			print "iter ", i, " h max ", res[1], target_h_max, " h min ", res[2], target_h_min, \
-                                " var ", res[3], target_var, " dist ", res[4], target_dist
-			print "iter ", i, " lr ", res[5], target_lr, " mu ", res[6], target_mu
+			# print "iter ", i, " h max ", res[1], target_h_max, " h min ", res[2], target_h_min, \
+   #                              " var ", res[3], target_var, " dist ", res[4], target_dist
+			# print "iter ", i, " lr ", res[5], target_lr, " mu ", res[6], target_mu
 
 			assert np.abs(target_h_max - res[1] ) < np.abs(target_h_max) * 1e-3
 			assert np.abs(target_h_min - res[2] ) < np.abs(target_h_min) * 1e-3
@@ -153,10 +153,12 @@ def test_lr_mu():
 
 
 if __name__ == "__main__":
+	# test gpu mode
 	with tf.variable_scope("test_sync_measurement"):
 		test_measurement()
 	with tf.variable_scope("test_sync_lr_mu"):
 		test_lr_mu()
+	# test cpu mode
 	with tf.variable_scope("test_sync_measurement_cpu"), tf.device("cpu:0"):
 		test_measurement()
 	with tf.variable_scope("test_sync_lr_mu_cpu"), tf.device("cpu:0"):
