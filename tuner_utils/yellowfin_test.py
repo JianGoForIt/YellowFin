@@ -11,38 +11,38 @@ n_dim = 1000000
 n_iter = 50
 
 def tune_everything(x0squared, C, T, gmin, gmax):
-    # First tune based on dynamic range    
-    if C==0:
-      dr=gmax/gmin
-      mustar=((np.sqrt(dr)-1)/(np.sqrt(dr)+1))**2
-      alpha_star = (1+np.sqrt(mustar))**2/gmax
-      
-      return alpha_star,mustar
-
-    dist_to_opt = x0squared
-    grad_var = C
-    max_curv = gmax
-    min_curv = gmin
-    const_fact = dist_to_opt * min_curv**2 / 2 / grad_var
-    coef = [-1, 3, -(3 + const_fact), 1]
-    roots = np.roots(coef)
-    roots = roots[np.real(roots) > 0]
-    roots = roots[np.real(roots) < 1]
-    root = roots[np.argmin(np.imag(roots) ) ]
+  # First tune based on dynamic range    
+  if C==0:
+    dr=gmax/gmin
+    mustar=((np.sqrt(dr)-1)/(np.sqrt(dr)+1))**2
+    alpha_star = (1+np.sqrt(mustar))**2/gmax
     
-    assert root > 0 and root < 1 and np.absolute(root.imag) < 1e-6
+    return alpha_star,mustar
 
-    dr = max_curv / min_curv
-    assert max_curv >= min_curv
-    mu = max( ( (np.sqrt(dr) - 1) / (np.sqrt(dr) + 1) )**2, root**2)
-    
-    lr_min = (1 - np.sqrt(mu) )**2 / min_curv
-    lr_max = (1 + np.sqrt(mu) )**2 / max_curv
-    
-    alpha_star = lr_min
-    mustar = mu
+  dist_to_opt = x0squared
+  grad_var = C
+  max_curv = gmax
+  min_curv = gmin
+  const_fact = dist_to_opt * min_curv**2 / 2 / grad_var
+  coef = [-1, 3, -(3 + const_fact), 1]
+  roots = np.roots(coef)
+  roots = roots[np.real(roots) > 0]
+  roots = roots[np.real(roots) < 1]
+  root = roots[np.argmin(np.imag(roots) ) ]
 
-    return alpha_star, mustar
+  assert root > 0 and root < 1 and np.absolute(root.imag) < 1e-6
+
+  dr = max_curv / min_curv
+  assert max_curv >= min_curv
+  mu = max( ( (np.sqrt(dr) - 1) / (np.sqrt(dr) + 1) )**2, root**2)
+
+  lr_min = (1 - np.sqrt(mu) )**2 / min_curv
+  lr_max = (1 + np.sqrt(mu) )**2 / max_curv
+
+  alpha_star = lr_min
+  mustar = mu
+
+  return alpha_star, mustar
 
 
 def test_measurement():
