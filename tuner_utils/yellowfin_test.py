@@ -117,7 +117,7 @@ def test_lr_mu():
     for i in range(n_iter):
     
       sess.run(tf.assign(w_grad_val, (i + 1) * np.ones( [n_dim, ], dtype=np.float32) ) )
-                        sess.run(tf.assign(b_grad_val, (i + 1) * np.ones( [1, ], dtype=np.float32) ) )
+      sess.run(tf.assign(b_grad_val, (i + 1) * np.ones( [1, ], dtype=np.float32) ) )
   
       res = sess.run( [opt._curv_win, opt._h_max, opt._h_min, opt._grad_var, opt._dist_to_opt_avg, 
         opt._lr_var, opt._mu_var, apply_op] )
