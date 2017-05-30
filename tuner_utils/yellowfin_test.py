@@ -4,18 +4,20 @@ import tensorflow as tf
 import numpy as np
 from yellowfin import YFOptimizer
 from tensorflow.python.ops import variables
+import time
 
 
-n_dim = 100000
+n_dim = 1000000
+n_iter = 50
 
 def tune_everything(x0squared, C, T, gmin, gmax):
     # First tune based on dynamic range    
     if C==0:
-        dr=gmax/gmin
-        mustar=((np.sqrt(dr)-1)/(np.sqrt(dr)+1))**2
-        alpha_star = (1+np.sqrt(mustar))**2/gmax
-        
-        return alpha_star,mustar
+      dr=gmax/gmin
+      mustar=((np.sqrt(dr)-1)/(np.sqrt(dr)+1))**2
+      alpha_star = (1+np.sqrt(mustar))**2/gmax
+      
+      return alpha_star,mustar
 
     dist_to_opt = x0squared
     grad_var = C
@@ -64,7 +66,7 @@ def test_measurement():
 		g_norm_avg = 0.0
 		g_avg = 0.0
 		target_dist = 0.0
-		for i in range(10):
+		for i in range(n_iter):
 			feed_dict = {w_grad_val: (i + 1) * np.ones( [n_dim, ], dtype=np.float32),
 						 b_grad_val: (i + 1) * np.ones( [1, ], dtype=np.float32) }
 			res = sess.run( [opt._curv_win, opt._h_max, opt._h_min, opt._grad_var, opt._dist_to_opt_avg, apply_op], feed_dict=feed_dict)
@@ -112,13 +114,13 @@ def test_lr_mu():
 		target_dist = 0.0
 		target_lr = 1.0
 		target_mu = 0.0
-		for i in range(100):
+		for i in range(n_iter):
 		
 			sess.run(tf.assign(w_grad_val, (i + 1) * np.ones( [n_dim, ], dtype=np.float32) ) )
                         sess.run(tf.assign(b_grad_val, (i + 1) * np.ones( [1, ], dtype=np.float32) ) )
 	
-                        res = sess.run( [opt._curv_win, opt._h_max, opt._h_min, opt._grad_var, opt._dist_to_opt_avg, 
-			opt._lr_var, opt._mu_var, apply_op] )
+			res = sess.run( [opt._curv_win, opt._h_max, opt._h_min, opt._grad_var, opt._dist_to_opt_avg, 
+				opt._lr_var, opt._mu_var, apply_op] )
 		
 			res[5] = opt._lr_var.eval()
 			res[6] = opt._mu_var.eval()
@@ -155,12 +157,26 @@ def test_lr_mu():
 if __name__ == "__main__":
 	# test gpu mode
 	with tf.variable_scope("test_sync_measurement"):
+		start = time.time()
 		test_measurement()
+		end = time.time()
+		print "GPU measurement test done in ", (end - start)/float(n_iter), " s/iter!"
 	with tf.variable_scope("test_sync_lr_mu"):
+		start = time.time()
 		test_lr_mu()
+		end = time.time()
+		print "GPU lr and mu test done in ", (end - start)/float(n_iter), " s/iter!"
+
 	# test cpu mode
 	with tf.variable_scope("test_sync_measurement_cpu"), tf.device("cpu:0"):
+		start = time.time()
 		test_measurement()
+		end = time.time()
+		print "CPU measurement test done in ", (end - start)/float(n_iter), " s/iter!"
 	with tf.variable_scope("test_sync_lr_mu_cpu"), tf.device("cpu:0"):
+		start = time.time()
 		test_lr_mu()
+		end = time.time()
+		print "CPU lr and mu test done in ", (end - start)/float(n_iter), " s/iter!"
+
 
