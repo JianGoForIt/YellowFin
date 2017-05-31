@@ -38,7 +38,8 @@ from yellowfin import *
 
 
 HParams = namedtuple('HParams',
-                     'batch_size, num_classes, min_lrn_rate, lrn_rate, mom, clip_norm_base,'
+                     'batch_size, num_classes, '
+                     'min_lrn_rate, lrn_rate, mom, clip_norm_base,'
                      'num_residual_units, use_bottleneck, weight_decay_rate, '
                      'relu_leakiness, optimizer, model_scope')
 
