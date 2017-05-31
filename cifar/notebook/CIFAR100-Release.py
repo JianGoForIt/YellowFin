@@ -37,21 +37,21 @@ batch_size_train = 128
 batch_size_test = 100
 tf.set_random_seed(1)
 hps_train = resnet_model.HParams(batch_size=batch_size_train,
-                         num_classes=NUM_CLASSES,
-                         min_lrn_rate=0.0001,
-                         lrn_rate=0.1,
-                         mom=0.9,
-                         clip_norm_base=10.0,
-                         num_residual_units=5,
-                         use_bottleneck=True,
-                         weight_decay_rate=0.0002,
-                         relu_leakiness=0.1,
-                         optimizer='YF', model_scope='train')
+                                num_classes=NUM_CLASSES,
+                                min_lrn_rate=0.0001,
+                                lrn_rate=0.1,
+                                mom=0.9,
+                                clip_norm_base=10.0,
+                                num_residual_units=5,
+                                use_bottleneck=True,
+                                weight_decay_rate=0.0002,
+                                relu_leakiness=0.1,
+                                optimizer='YF', model_scope='train')
 # specify how much memory to use on each GPU
 gpu_mem_portion=0.5
 n_core = 16
 with tf.variable_scope("train"), tf.device(DEV):
-        model_train = get_model(hps_train, DATASET, TRAIN_DATA_PATH, mode='train')
+  model_train = get_model(hps_train, DATASET, TRAIN_DATA_PATH, mode='train')
 init_op = tf.global_variables_initializer()
 sess = GetTrainingSession(model_train, gpu_mem_portion=gpu_mem_portion)
 
@@ -63,16 +63,16 @@ num_step = 70001
 display_interval=2500
 
 if not os.path.isdir(log_dir):
-    os.mkdir(log_dir)
+  os.mkdir(log_dir)
 
 tf.set_random_seed(1)
 sess.run(init_op)
 
 loss_list = []
 for i in range(num_step):
-    loss, _ = sess.run( [model_train.cost, model_train.train_op ] )
-    loss_list.append(loss)
-    if (i % display_interval == 0 or i == 50) and (i != 0):
-        print "plotting for iteration ", i
-        plot_loss(loss_list, log_dir, i)
-        np.savetxt(log_dir + "/loss_full.txt", np.array(loss_list) )
+  loss, _ = sess.run( [model_train.cost, model_train.train_op ] )
+  loss_list.append(loss)
+  if (i % display_interval == 0 or i == 50) and (i != 0):
+    print "plotting for iteration ", i
+    plot_loss(loss_list, log_dir, i)
+    np.savetxt(log_dir + "/loss_full.txt", np.array(loss_list) )
