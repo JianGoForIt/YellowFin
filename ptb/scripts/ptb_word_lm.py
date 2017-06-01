@@ -56,16 +56,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import inspect
 import time
 
 import numpy as np
 import tensorflow as tf
 
-from tensorflow.models.rnn.ptb import reader
-import itertools
-import sys
-sys.path.append("../tuner_utils")
-from robust_region_adagrad_per_layer import *
+import reader
 
 flags = tf.flags
 logging = tf.logging
@@ -101,7 +98,7 @@ class PTBInput(object):
 class PTBModel(object):
   """The PTB model."""
 
-  def __init__(self, is_training, config, input_, dev, opt_method='sgd'):
+  def __init__(self, is_training, config, input_):
     self._input = input_
 
     batch_size = input_.batch_size
@@ -112,15 +109,30 @@ class PTBModel(object):
     # Slightly better results can be obtained with forget gate biases
     # initialized to 1 but the hyperparameters of the model would need to be
     # different than reported in the paper.
-    lstm_cell = tf.nn.rnn_cell.BasicLSTMCell(size, forget_bias=0.0, state_is_tuple=True)
+    def lstm_cell():
+      # With the latest TensorFlow source code (as of Mar 27, 2017),
+      # the BasicLSTMCell will need a reuse parameter which is unfortunately not
+      # defined in TensorFlow 1.0. To maintain backwards compatibility, we add
+      # an argument check here:
+      if 'reuse' in inspect.getargspec(
+          tf.contrib.rnn.BasicLSTMCell.__init__).args:
+        return tf.contrib.rnn.BasicLSTMCell(
+            size, forget_bias=0.0, state_is_tuple=True,
+            reuse=tf.get_variable_scope().reuse)
+      else:
+        return tf.contrib.rnn.BasicLSTMCell(
+            size, forget_bias=0.0, state_is_tuple=True)
+    attn_cell = lstm_cell
     if is_training and config.keep_prob < 1:
-      lstm_cell = tf.nn.rnn_cell.DropoutWrapper(
-          lstm_cell, output_keep_prob=config.keep_prob)
-    cell = tf.nn.rnn_cell.MultiRNNCell([lstm_cell] * config.num_layers, state_is_tuple=True)
+      def attn_cell():
+        return tf.contrib.rnn.DropoutWrapper(
+            lstm_cell(), output_keep_prob=config.keep_prob)
+    cell = tf.contrib.rnn.MultiRNNCell(
+        [attn_cell() for _ in range(config.num_layers)], state_is_tuple=True)
 
     self._initial_state = cell.zero_state(batch_size, data_type())
 
-    with tf.device(dev):
+    with tf.device("/cpu:0"):
       embedding = tf.get_variable(
           "embedding", [vocab_size, size], dtype=data_type())
       inputs = tf.nn.embedding_lookup(embedding, input_.input_data)
@@ -128,14 +140,15 @@ class PTBModel(object):
     if is_training and config.keep_prob < 1:
       inputs = tf.nn.dropout(inputs, config.keep_prob)
 
-    # Simplified version of tensorflow.models.rnn.rnn.py's rnn().
+    # Simplified version of models/tutorials/rnn/rnn.py's rnn().
     # This builds an unrolled LSTM for tutorial purposes only.
     # In general, use the rnn() or state_saving_rnn() from rnn.py.
     #
     # The alternative version of the code below is:
     #
     # inputs = tf.unstack(inputs, num=num_steps, axis=1)
-    # outputs, state = tf.nn.rnn(cell, inputs, initial_state=self._initial_state)
+    # outputs, state = tf.contrib.rnn.static_rnn(
+    #     cell, inputs, initial_state=self._initial_state)
     outputs = []
     state = self._initial_state
     with tf.variable_scope("RNN"):
@@ -144,87 +157,36 @@ class PTBModel(object):
         (cell_output, state) = cell(inputs[:, time_step, :], state)
         outputs.append(cell_output)
 
-    output = tf.reshape(tf.concat(1, outputs), [-1, size])
+    output = tf.reshape(tf.stack(axis=1, values=outputs), [-1, size])
     softmax_w = tf.get_variable(
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
     logits = tf.matmul(output, softmax_w) + softmax_b
-    loss = tf.nn.seq2seq.sequence_loss_by_example(
+    loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(
         [logits],
         [tf.reshape(input_.targets, [-1])],
         [tf.ones([batch_size * num_steps], dtype=data_type())])
-    # self._cost = cost = tf.reduce_sum(loss) / batch_size
-    self._cost = cost = tf.reduce_sum(loss) / (batch_size * num_steps)
+    self._cost = cost = tf.reduce_sum(loss) / batch_size
     self._final_state = state
 
     if not is_training:
       return
 
     self._lr = tf.Variable(0.0, trainable=False)
-    self._mu = tf.Variable(0.0, trainable=False)
-    self._grad_norm_thresh = tf.Variable(0.0, trainable=False)
     tvars = tf.trainable_variables()
-    self.tvars = tvars
-
-    self.grads = tf.gradients(cost, tvars)
-
-    grads_clip, self.grad_norm = tf.clip_by_global_norm(self.grads, self._grad_norm_thresh)
-    if opt_method == 'sgd':
-      optimizer = tf.train.GradientDescentOptimizer(self._lr)
-      self._train_op = optimizer.apply_gradients(
-          zip(grads_clip, tvars),
-          global_step=tf.contrib.framework.get_or_create_global_step())
-
-    elif opt_method == 'mom':
-      print("using sgd mom")
-      optimizer = tf.train.MomentumOptimizer(self._lr, self._mu)
-      self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars), 
+    grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),
+                                      config.max_grad_norm)
+    optimizer = tf.train.GradientDescentOptimizer(self._lr)
+    self._train_op = optimizer.apply_gradients(
+        zip(grads, tvars),
         global_step=tf.contrib.framework.get_or_create_global_step())
-    elif opt_method == 'adam':
-      optimizer = tf.train.AdamOptimizer(self._lr)
-      self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars), 
-        global_step=tf.contrib.framework.get_or_create_global_step())
-
-    elif opt_method == "meta-bundle":
-      print("meta bundle optimizer")
-      # grads_tvars = [zip(self.grads, self.tvars), ]
-      grads_tvars = []
-      grads_tvars.append( [ (self.grads[0], self.tvars[0] ), ] )
-      grads_tvars.append( [ (self.grads[1], self.tvars[1] ), (self.grads[2], self.tvars[2] ) ] )
-      grads_tvars.append( [ (self.grads[3], self.tvars[3] ), (self.grads[4], self.tvars[4] ) ] )
-      grads_tvars.append( [ (self.grads[5], self.tvars[5] ), (self.grads[6], self.tvars[6] ) ] )
-      
-      n_bundles = len(grads_tvars)      
-      dummy_lr_vals = (1.0 * np.ones( (n_bundles, ) ) ).tolist()
-      dummy_mu_vals = (0.0 * np.ones( (n_bundles, ) ) ).tolist()
-      dummy_thresh_vals = (1.0 * np.ones( (n_bundles, ) ) ).tolist()
-      self.optimizer = MetaOptimizer(dummy_lr_vals, dummy_mu_vals, dummy_thresh_vals)
-      self._train_op = self.optimizer.apply_gradients(grads_tvars)
-    else:
-      raise Exception("optimizer not supported")
-
 
     self._new_lr = tf.placeholder(
         tf.float32, shape=[], name="new_learning_rate")
     self._lr_update = tf.assign(self._lr, self._new_lr)
 
-    self._new_mu = tf.placeholder(
-        tf.float32, shape=[], name="new_momentum")
-    self._mu_update = tf.assign(self._mu, self._new_mu)
-
-    self._new_grad_norm_thresh = tf.placeholder(
-      tf.float32, shape=[], name="new_grad_norm_thresh")
-    self._grad_norm_thresh_update = tf.assign(self._grad_norm_thresh, self._new_grad_norm_thresh)
-
-
   def assign_lr(self, session, lr_value):
     session.run(self._lr_update, feed_dict={self._new_lr: lr_value})
-
-  def assign_hyper_param(self, session, lr_value, mu_value, grad_norm_thresh_base):
-    res = session.run( [self._lr_update, self._mu_update, self._grad_norm_thresh_update], 
-      feed_dict={self._new_lr: lr_value, self._new_mu: mu_value,
-                 self._new_grad_norm_thresh: grad_norm_thresh_base / lr_value} )
-
 
   @property
   def input(self):
@@ -334,6 +296,7 @@ def run_epoch(session, model, eval_op=None, verbose=False):
     for i, (c, h) in enumerate(model.initial_state):
       feed_dict[c] = state[i].c
       feed_dict[h] = state[i].h
+
     vals = session.run(fetches, feed_dict)
     cost = vals["cost"]
     state = vals["final_state"]
@@ -343,10 +306,10 @@ def run_epoch(session, model, eval_op=None, verbose=False):
 
     if verbose and step % (model.input.epoch_size // 10) == 10:
       print("%.3f perplexity: %.3f speed: %.0f wps" %
-            (step * 1.0 / model.input.epoch_size, np.exp(costs * model.input.num_steps / iters),
+            (step * 1.0 / model.input.epoch_size, np.exp(costs / iters),
              iters * model.input.batch_size / (time.time() - start_time)))
 
-  return np.exp(costs * model.input.num_steps / iters)
+  return np.exp(costs / iters)
 
 
 def get_config():
@@ -382,14 +345,14 @@ def main(_):
       train_input = PTBInput(config=config, data=train_data, name="TrainInput")
       with tf.variable_scope("Model", reuse=None, initializer=initializer):
         m = PTBModel(is_training=True, config=config, input_=train_input)
-      tf.scalar_summary("Training Loss", m.cost)
-      tf.scalar_summary("Learning Rate", m.lr)
+      tf.summary.scalar("Training Loss", m.cost)
+      tf.summary.scalar("Learning Rate", m.lr)
 
     with tf.name_scope("Valid"):
       valid_input = PTBInput(config=config, data=valid_data, name="ValidInput")
       with tf.variable_scope("Model", reuse=True, initializer=initializer):
         mvalid = PTBModel(is_training=False, config=config, input_=valid_input)
-      tf.scalar_summary("Validation Loss", mvalid.cost)
+      tf.summary.scalar("Validation Loss", mvalid.cost)
 
     with tf.name_scope("Test"):
       test_input = PTBInput(config=eval_config, data=test_data, name="TestInput")
@@ -399,8 +362,6 @@ def main(_):
 
     sv = tf.train.Supervisor(logdir=FLAGS.save_path)
     with sv.managed_session() as session:
-    # session = sv.managed_session()
-    # with tf.Session() as session:
       for i in range(config.max_max_epoch):
         lr_decay = config.lr_decay ** max(i + 1 - config.max_epoch, 0.0)
         m.assign_lr(session, config.learning_rate * lr_decay)

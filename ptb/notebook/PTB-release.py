@@ -133,7 +133,7 @@ def train_single_step_frame(sess, model, model_eval, model_test, eval_op, lr_val
 
 # In[6]:
 
-data_path = "../../ptb/data"
+data_path = "../../data/ptb/data"
 train_config = SmallConfig()
 eval_config = SmallConfig()
 raw_data = reader.ptb_raw_data(data_path)
