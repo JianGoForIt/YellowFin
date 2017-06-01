@@ -113,7 +113,7 @@ def train_single_step_frame(sess, model, model_eval, model_test, eval_op, lr_val
         print("%.3f perplexity: %.3f speed: %.0f wps" %
         (iter_id * 1.0 / model.input.epoch_size, np.exp(costs * model.input.num_steps / iters), 0))     
         
-    if iter_id % test_int == 0:
+    if iter_id % test_int == 0 and iter_id != 0:
         print("test interval ", test_int)
 #         val_perp = run_epoch(sess, model_eval)
 #         print("Valid Perplexity: %.3f" % val_perp)
@@ -146,10 +146,10 @@ dev='cpu:0'
 
 tf.reset_default_graph()
 opt_method = 'mom'
-with tf.device(dev):
-    m, m_val, m_test = construct_model(train_config, eval_config, raw_data, dev, opt_method)
-    init_op = tf.global_variables_initializer()
-    sv = tf.train.Supervisor(logdir='./tmp_init_thresh_inf')
+# with tf.device(dev):
+m, m_val, m_test = construct_model(train_config, eval_config, raw_data, dev, opt_method)
+init_op = tf.global_variables_initializer()
+sv = tf.train.Supervisor(logdir='./tmp_init_thresh_inf')
 
 
 # In[8]:
@@ -167,7 +167,7 @@ curv_beta = 0.999
 param_beta = 0.999
 sliding_win_width=10
 display_interval=1000
-test_int = 500
+test_int = 1000
 n_core=20
 
 general_log_dir = "../results"
@@ -186,7 +186,7 @@ if not os.path.isdir(log_dir):
     os.mkdir(log_dir)
 
 with sv.managed_session(config=tf.ConfigProto(inter_op_parallelism_threads=n_core,
-                   intra_op_parallelism_threads=n_core, gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.01))) as sess:
+                   intra_op_parallelism_threads=n_core, gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5))) as sess:
     tf.set_random_seed(2)
     sess.run(init_op)
     state = sess.run(m.initial_state)
