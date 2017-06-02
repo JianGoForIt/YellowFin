@@ -6,6 +6,10 @@ from tensorflow.python.ops import variable_scope
 from tensorflow.python.ops import variables
 from tensorflow.python.framework import ops
 
+# Values for gate_gradients.
+GATE_NONE = 0
+GATE_OP = 1
+GATE_GRAPH = 2
 
 class YFOptimizer(object):
   def __init__(self, lr=1.0, mu=0.0, clip_thresh=None, beta=0.999, curv_win_width=20,
@@ -196,4 +200,32 @@ class YFOptimizer(object):
       self._increment_global_step_op = tf.assign(self._global_step, self._global_step + 1)
 
     return tf.group(apply_grad_op, after_apply_op, update_hyper_op, self._increment_global_step_op)
+
+
+  def minimize(self, loss, global_step=None, var_list=None,
+               gate_gradients=GATE_OP, aggregation_method=None,
+               colocate_gradients_with_ops=False, name=None,
+               grad_loss=None):
+    """Adapted from Tensorflow Optimizer base class member function:
+    Add operations to minimize `loss` by updating `var_list`.
+    This method simply combines calls `compute_gradients()` and
+    `apply_gradients()`. If you want to process the gradient before applying
+    them call `tf.gradients()` and `self.apply_gradients()` explicitly instead
+    of using this function.
+    """
+    grads_and_vars = self._optimizer.compute_gradients(
+        loss, var_list=var_list, gate_gradients=gate_gradients,
+        aggregation_method=aggregation_method,
+        colocate_gradients_with_ops=colocate_gradients_with_ops,
+        grad_loss=grad_loss)
+
+    vars_with_grad = [v for g, v in grads_and_vars if g is not None]
+    if not vars_with_grad:
+      raise ValueError(
+          "No gradients provided for any variable, check your graph for ops"
+          " that do not support gradients, between variables %s and loss %s." %
+          ([str(v) for _, v in grads_and_vars], loss))
+
+    return self.apply_gradients(grads_and_vars)
+
         
