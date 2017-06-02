@@ -8,16 +8,18 @@ from tensorflow.python.framework import ops
 
 
 class YFOptimizer(object):
-  def __init__(self, lr=1.0, mu=0.0, clip_thresh=10000.0, beta=0.999, curv_win_width=20,
-    mu_update_interval=1, use_async=False):
+  def __init__(self, lr=1.0, mu=0.0, clip_thresh=None, beta=0.999, curv_win_width=20,
+    mu_update_interval=1, zero_debias=True):
     # clip thresh is the threshold value on ||lr * gradient||
     self._lr = lr
     self._mu = mu
-    self._clip_thresh_ = clip_thresh
 
     self._lr_var = tf.Variable(lr, dtype=tf.float32, name="YF_lr", trainable=False)
     self._mu_var = tf.Variable(mu, dtype=tf.float32, name="YF_mu", trainable=False)
-    self._clip_thresh_var = tf.Variable(clip_thresh, dtype=tf.float32, name="YF_clip_thresh", trainable=False)
+    if clip_thresh is not None:
+      self._clip_thresh_var = tf.Variable(clip_thresh, dtype=tf.float32, name="YF_clip_thresh", trainable=False)
+    else:
+      self._clip_thresh_var = None
 
     # the underlying momentum optimizer
     self._optimizer = tf.train.MomentumOptimizer(self._lr_var, self._mu_var)
@@ -32,25 +34,13 @@ class YFOptimizer(object):
     # for conditional tuning
     self._do_tune = tf.greater(self._global_step, tf.constant(0) )
 
-    # option for async version
-    self._use_async = use_async
+    self._zero_debias = zero_debias
 
     self._tvars = None
 
     # for curvature range
     self._curv_win_width = curv_win_width
     self._curv_win = None
-
-
-  def before_apply(self):
-    # copy old momentum before the underlying momentum optimizer get the old momentum
-    tune_prep_ops = []
-    if self._use_async:
-      for tvar in self._tvars:
-        tune_prep_ops.append(
-          tf.assign(self._optimizer.get_slot(tvar, "momentum_delay"), 
-          self._optimizer.get_slot(tvar, "momentum") ) )
-    return tf.group(*tune_prep_ops)
 
 
   def curvature_range(self):
@@ -76,7 +66,6 @@ class YFOptimizer(object):
 
 
   def grad_variance(self):
-    # TODO: need to get efficient moving average for sparse gradient
     grad_var_ops = []
     tensor_to_avg = []
     for t, g in zip(self._tvars, self._grads):
@@ -99,7 +88,6 @@ class YFOptimizer(object):
     self._grad_norm = tf.sqrt(self._grad_norm_squared)
     avg_op = self._moving_averager.apply([self._grad_norm,] )
     dist_to_opt_ops.append(avg_op)
-    # TODO verify if the exe order is right in here
     with tf.control_dependencies([avg_op] ):
       self._grad_norm_avg = self._moving_averager.average(self._grad_norm)
       # single iteration distance estimation, note here self._grad_norm_avg is per variable
@@ -107,15 +95,13 @@ class YFOptimizer(object):
     # running average of distance
     avg_op = self._moving_averager.apply([self._dist_to_opt] )
     dist_to_opt_ops.append(avg_op)
-    # TODO verify if the exe order is right in here
     with tf.control_dependencies([avg_op]):
       self._dist_to_opt_avg = tf.identity(self._moving_averager.average(self._dist_to_opt) )
     return dist_to_opt_ops
 
 
   def after_apply(self):
-    # print "decay ", self._beta
-    self._moving_averager = tf.train.ExponentialMovingAverage(decay=self._beta, zero_debias=True)
+    self._moving_averager = tf.train.ExponentialMovingAverage(decay=self._beta, zero_debias=self._zero_debias)
     assert self._grads != None and len(self._grads) > 0
     after_apply_ops = []
 
@@ -171,7 +157,6 @@ class YFOptimizer(object):
 
   def update_hyper_param(self):
     assign_hyper_ops = []
-    # TODO verify whether I need to get a control_dependency here 
     self._mu = tf.identity(tf.cond(self._do_tune, lambda: self.get_mu_tensor(),
       lambda: self._mu_var) )
     with tf.control_dependencies([self._mu] ):
@@ -190,19 +175,17 @@ class YFOptimizer(object):
   def apply_gradients(self, grads_tvars):
     self._grads, self._tvars = zip(*grads_tvars)
 
-    # with tf.control_dependencies(pop_ops):
-    with tf.variable_scope("before_apply"):
-      before_apply_op = self.before_apply()
-
     with tf.variable_scope("apply_updates"):
-      with tf.control_dependencies( [before_apply_op] ):
+      if self._clip_thresh_var is not None:
         self._grads_clip, self._grads_norm = tf.clip_by_global_norm(self._grads, self._clip_thresh_var)
         apply_grad_op = \
           self._optimizer.apply_gradients(zip(self._grads_clip, self._tvars) )
+      else:
+        apply_grad_op = \
+          self._optimizer.apply_gradients(zip(self._grads, self._tvars) )
+
 
     with tf.variable_scope("after_apply"):
-      # we calculate the gradeint squared here which can
-      # be paralleled with apply_grad_op. 
       after_apply_op = self.after_apply()
 
     with tf.variable_scope("update_hyper"):
@@ -212,5 +195,5 @@ class YFOptimizer(object):
     with tf.control_dependencies([update_hyper_op] ):
       self._increment_global_step_op = tf.assign(self._global_step, self._global_step + 1)
 
-    return tf.group(before_apply_op, apply_grad_op, after_apply_op, update_hyper_op, self._increment_global_step_op)
+    return tf.group(apply_grad_op, after_apply_op, update_hyper_op, self._increment_global_step_op)
         

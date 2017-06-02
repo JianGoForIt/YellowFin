@@ -46,7 +46,7 @@ def tune_everything(x0squared, C, T, gmin, gmax):
 
 
 def test_measurement():
-  opt = YFOptimizer()
+  opt = YFOptimizer(zero_debias=False)
   w = tf.Variable(np.ones([n_dim, ] ), dtype=tf.float32, name="w", trainable=True)
   b = tf.Variable(np.ones([1, ], dtype=np.float32), dtype=tf.float32, name="b", trainable=True)
   x = tf.constant(np.ones([n_dim, ], dtype=np.float32), dtype=tf.float32)
@@ -92,7 +92,7 @@ def test_measurement():
 
 
 def test_lr_mu():
-  opt = YFOptimizer()
+  opt = YFOptimizer(zero_debias=False)
   w = tf.Variable(np.ones([n_dim, ] ), dtype=tf.float32, name="w", trainable=True)
   b = tf.Variable(np.ones([1, ], dtype=np.float32), dtype=tf.float32, name="b", trainable=True)
   x = tf.constant(np.ones([n_dim, ], dtype=np.float32), dtype=tf.float32)
