@@ -76,12 +76,19 @@ class YFOptimizer(object):
 
 
   def grad_variance(self):
+    # TODO: need to get efficient moving average for sparse gradient
     grad_var_ops = []
-    avg_op = self._moving_averager.apply(self._grads)
+    tensor_to_avg = []
+    for t, g in zip(self._tvars, self._grads):
+      if isinstance(g, ops.IndexedSlices):
+        tensor_to_avg.append(tf.reshape(tf.unsorted_segment_sum(g.values, g.indices, g.dense_shape[0] ), shape=t.get_shape() ) )
+      else:
+        tensor_to_avg.append(g)
+    avg_op = self._moving_averager.apply(tensor_to_avg)
     grad_var_ops.append(avg_op)
     with tf.control_dependencies([avg_op] ):
-      self._grad_avg = [self._moving_averager.average(val) for val in self._grads]
-      self._grad_avg_squared = [val**2 for val in self._grad_avg]
+      self._grad_avg = [self._moving_averager.average(val) for val in tensor_to_avg]
+      self._grad_avg_squared = [tf.square(val) for val in self._grad_avg]
     self._grad_var = self._grad_norm_squared_avg - tf.add_n( [tf.reduce_sum(val) for val in self._grad_avg_squared] )
     return grad_var_ops
 
@@ -108,16 +115,16 @@ class YFOptimizer(object):
 
   def after_apply(self):
     # print "decay ", self._beta
-    self._moving_averager = tf.train.ExponentialMovingAverage(decay=self._beta)
+    self._moving_averager = tf.train.ExponentialMovingAverage(decay=self._beta, zero_debias=True)
     assert self._grads != None and len(self._grads) > 0
     after_apply_ops = []
 
     # get per var g**2 and norm**2
     self._grad_squared = []
     self._grad_norm_squared = []
-    for g in self._grads:
-      with ops.colocate_with(g):
-        self._grad_squared.append(g**2)
+    for v, g in zip(self._tvars, self._grads):
+      with ops.colocate_with(v):
+        self._grad_squared.append(tf.square(g) )
     self._grad_norm_squared = [tf.reduce_sum(grad_squared) for grad_squared in self._grad_squared]
 
     # the following running average on squared norm of gradient is shared by grad_var and dist_to_opt
@@ -207,37 +214,3 @@ class YFOptimizer(object):
 
     return tf.group(before_apply_op, apply_grad_op, after_apply_op, update_hyper_op, self._increment_global_step_op)
         
-
-  # def plot_curv(self, log_dir='./'):            
-  #   plt.figure()
-  #   # # plt.semilogy(self._lr_grad_list, label="lr * grad")
-  #   # # plt.semilogy(self._max_curv_list, label="max curv for clip")
-  #   # # plt.semilogy(self._clip_list, label="clip thresh")
-  #   # plt.semilogy(self._accum_grad_squared_list, label="denominator")
-  #   # plt.semilogy(self._curv_list, label="clip curvature")
-  #   plt.semilogy(self._lr_list, label="lr")
-  #   plt.semilogy(self._mu_list, label="mu")
-  #   plt.semilogy(self._mu_async_list, label="async_mu")
-  #   plt.semilogy(self._mu_sync_list, label="sync_mu")
-
-  #   plt.title('LR='+str(self._lr_list[-1] )+' mu='+str(self._mu_list[-1] ) )
-  #   plt.xlabel("iteration")
-  #   plt.grid()
-  #   ax = plt.subplot(111)
-  #   ax.legend(loc='lower left', 
-  #           ncol=2, fancybox=True, shadow=True)
-  #   plt.savefig(log_dir + "/fig_" + str(self._id) + ".png")
-  #   plt.close()
-  #   # save monitoring quantities
-  #   with open(log_dir + "/lr_grad_" + str(self._id) + ".txt", "w") as f:
-  #       np.savetxt(f, np.array(self._lr_grad_list) )
-  #   with open(log_dir + "/max_curv_" + str(self._id) + ".txt", "w") as f:
-  #       np.savetxt(f, np.array(self._max_curv_list) )
-  #   with open(log_dir + "/clip_thresh_" + str(self._id) + ".txt", "w") as f:
-  #       np.savetxt(f, np.array(self._clip_list) )
-  #   with open(log_dir + "/lr_" + str(self._id) + ".txt", "w") as f:
-  #       np.savetxt(f, np.array(self._lr_list) )
-  #   with open(log_dir + "/mu_" + str(self._id) + ".txt", "w") as f:
-  #       np.savetxt(f, np.array(self._mu_list) )  
-  #   with open(log_dir + "/mu_" + str(self._id) + ".txt", "w") as f:
-  #       np.savetxt(f, np.array(self._dr_list) )

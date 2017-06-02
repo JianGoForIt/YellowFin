@@ -64,6 +64,10 @@ import tensorflow as tf
 
 import reader
 
+import sys
+sys.path.append('../../tuner_utils')
+from yellowfin import YFOptimizer
+
 flags = tf.flags
 logging = tf.logging
 
@@ -196,22 +200,9 @@ class PTBModel(object):
       optimizer = tf.train.AdamOptimizer(self._lr)
       self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars), 
         global_step=tf.contrib.framework.get_or_create_global_step())
-
-    elif opt_method == "meta-bundle":
-      print("meta bundle optimizer")
-      # grads_tvars = [zip(self.grads, self.tvars), ]
-      grads_tvars = []
-      grads_tvars.append( [ (self.grads[0], self.tvars[0] ), ] )
-      grads_tvars.append( [ (self.grads[1], self.tvars[1] ), (self.grads[2], self.tvars[2] ) ] )
-      grads_tvars.append( [ (self.grads[3], self.tvars[3] ), (self.grads[4], self.tvars[4] ) ] )
-      grads_tvars.append( [ (self.grads[5], self.tvars[5] ), (self.grads[6], self.tvars[6] ) ] )
-      
-      n_bundles = len(grads_tvars)      
-      dummy_lr_vals = (1.0 * np.ones( (n_bundles, ) ) ).tolist()
-      dummy_mu_vals = (0.0 * np.ones( (n_bundles, ) ) ).tolist()
-      dummy_thresh_vals = (1.0 * np.ones( (n_bundles, ) ) ).tolist()
-      self.optimizer = MetaOptimizer(dummy_lr_vals, dummy_mu_vals, dummy_thresh_vals)
-      self._train_op = self.optimizer.apply_gradients(grads_tvars)
+    elif opt_method == 'YF':
+      optimizer = YFOptimizer()
+      self._train_op = optimizer.apply_gradients(zip(self.grads, tvars) )
     else:
       raise Exception("optimizer not supported")
 

@@ -145,7 +145,7 @@ dev='cpu:0'
 # In[7]:
 
 tf.reset_default_graph()
-opt_method = 'mom'
+opt_method = 'YF'
 # with tf.device(dev):
 m, m_val, m_test = construct_model(train_config, eval_config, raw_data, dev, opt_method)
 init_op = tf.global_variables_initializer()
@@ -181,7 +181,8 @@ os.system("rm -r ./tmp")
 lr_val = 1.0 
 mom_val = 0.0
 do_pred = True
-log_dir = general_log_dir + "/noisy_lr_" + str(lr_val) + "_mom_" + str(mom_val) + "_exp_0.999_test_perp_init_thresh_10_percent_0_100_no_thresh-seed-2"
+log_dir = general_log_dir + "/test-release-ptb"
+# log_dir = general_log_dir + "/noisy_lr_" + str(lr_val) + "_mom_" + str(mom_val) + "_exp_0.999_test_perp_init_thresh_10_percent_0_100_no_thresh-seed-2"
 if not os.path.isdir(log_dir):
     os.mkdir(log_dir)
 
