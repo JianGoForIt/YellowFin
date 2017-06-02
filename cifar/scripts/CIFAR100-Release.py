@@ -15,7 +15,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-sys.path.append('../scripts')
+sys.path.append('../model')
 import resnet_model
 from resnet_utils import *
 import cifar_input
@@ -58,6 +58,8 @@ sess = GetTrainingSession(model_train, gpu_mem_portion=gpu_mem_portion)
 
 # run steps
 general_log_dir = "../results"
+if not os.path.isdir(general_log_dir):
+  os.mkdir(general_log_dir)
 log_dir = general_log_dir + "/test-release-cifar100-final"
 num_step = 70001
 display_interval=2500

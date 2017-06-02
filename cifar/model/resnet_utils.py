@@ -8,7 +8,6 @@ from tensorflow.python.framework import ops
 import numpy as np
 
 import resnet_model
-from resnet_main import train
 import cifar_input
 
 import matplotlib
