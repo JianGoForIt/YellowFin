@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import cPickle as pickle
 
-sys.path.append('../scripts')
+sys.path.append('../models')
 from ptb_word_lm import *
 
 import matplotlib
