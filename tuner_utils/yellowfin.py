@@ -20,13 +20,16 @@ class YFOptimizer(object):
 
     self._lr_var = tf.Variable(lr, dtype=tf.float32, name="YF_lr", trainable=False)
     self._mu_var = tf.Variable(mu, dtype=tf.float32, name="YF_mu", trainable=False)
+    # for step scheme or decaying scheme for the learning rates
+    self.lr_factor = tf.Variable(1.0, dtype=tf.float32, name="YF_lr_factor", trainable=False)
     if clip_thresh is not None:
       self._clip_thresh_var = tf.Variable(clip_thresh, dtype=tf.float32, name="YF_clip_thresh", trainable=False)
     else:
       self._clip_thresh_var = None
 
     # the underlying momentum optimizer
-    self._optimizer = tf.train.MomentumOptimizer(self._lr_var, self._mu_var)
+    self._optimizer = \
+      tf.train.MomentumOptimizer(self._lr_var * self.lr_factor, self._mu_var)
 
     # moving average for statistics
     self._beta = beta
@@ -225,6 +228,9 @@ class YFOptimizer(object):
           "No gradients provided for any variable, check your graph for ops"
           " that do not support gradients, between variables %s and loss %s." %
           ([str(v) for _, v in grads_and_vars], loss))
+    for g, v in grads_and_vars:
+      print "g ", g
+      print "v ", v
 
     return self.apply_gradients(grads_and_vars)
 
