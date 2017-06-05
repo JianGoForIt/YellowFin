@@ -13,8 +13,13 @@ GATE_GRAPH = 2
 
 class YFOptimizer(object):
   def __init__(self, lr=1.0, mu=0.0, clip_thresh=None, beta=0.999, curv_win_width=20,
-    mu_update_interval=1, zero_debias=True):
-    # clip thresh is the threshold value on ||lr * gradient||
+    mu_update_interval=1, zero_debias=True, delta_mu=0.0):
+    '''
+    clip thresh is the threshold value on ||lr * gradient||
+    delta_mu can be place holder/variable/python scalar. They are used for additional
+    momentum in situations such as asynchronous-parallel training. The default is 0.0
+    for basic usage of the optimizer.
+    '''
     self._lr = lr
     self._mu = mu
 
@@ -29,7 +34,7 @@ class YFOptimizer(object):
 
     # the underlying momentum optimizer
     self._optimizer = \
-      tf.train.MomentumOptimizer(self._lr_var * self.lr_factor, self._mu_var)
+      tf.train.MomentumOptimizer(self._lr_var * self.lr_factor, self._mu_var + delta_mu)
 
     # moving average for statistics
     self._beta = beta
