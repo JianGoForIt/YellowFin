@@ -194,9 +194,9 @@ def train(args):
                           e, eval_loss, end - start))
             
 
-        with open(args.log_dir + "/loss.txt", "w") as f:
-            np.savetxt(f, np.array(loss_list) )
-        with open(args.log_dir + "/eval_loss.txt", "w") as f:
-            np.savetxt(f, np.array(eval_loss_list) )
+    	    with open(args.log_dir + "/loss.txt", "w") as f:
+        	np.savetxt(f, np.array(loss_list) )
+            with open(args.log_dir + "/eval_loss.txt", "w") as f:
+                np.savetxt(f, np.array(eval_loss_list) )
 if __name__ == '__main__':
     main()
