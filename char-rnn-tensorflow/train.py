@@ -30,7 +30,7 @@ def main():
                         help='minibatch size')
     parser.add_argument('--seq_length', type=int, default=50,
                         help='RNN sequence length')
-    parser.add_argument('--num_epochs', type=int, default=100,
+    parser.add_argument('--num_epochs', type=int, default=50,
                         help='number of epochs')
     parser.add_argument('--save_every', type=int, default=1000,
                         help='save frequency')
@@ -194,9 +194,9 @@ def train(args):
                           e, eval_loss, end - start))
             
 
-        with open(args.log_dir + "/loss.txt", "w") as f:
-            np.savetxt(f, np.array(loss_list) )
-        with open(args.log_dir + "/eval_loss.txt", "w") as f:
-            np.savetxt(f, np.array(eval_loss_list) )
+    	    with open(args.log_dir + "/loss.txt", "w") as f:
+        	np.savetxt(f, np.array(loss_list) )
+            with open(args.log_dir + "/eval_loss.txt", "w") as f:
+                np.savetxt(f, np.array(eval_loss_list) )
 if __name__ == '__main__':
     main()
