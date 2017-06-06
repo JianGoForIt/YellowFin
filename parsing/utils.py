@@ -124,7 +124,7 @@ class PTBModel(object):
   
     self._train_op = optimizer.apply_gradients(zip(grads, tvars))
 
-    self.train_loss_summary = tf.summary.scalar('train_loss', cost)
+    self.train_loss_summary = tf.summary.scalar('train_loss', self._norm_loss)
 
     self.writer = tf.summary.FileWriter(
         os.path.join(config.log_dir, time.strftime("%Y-%m-%d-%H-%M-%S")))
@@ -302,7 +302,7 @@ def run_epoch(session, m, data, eval_op, verbose=False, epoch_id=None):
             (step * 1.0 / epoch_size, np.exp(costs / iters),
              iters * m.batch_size / (time.time() - start_time)))
     if verbose:
-      print("summary added step", epoch_id * epoch_size + step, epoch_id, epoch_size, epoch_id)
+      #print("summary added step", epoch_id * epoch_size + step, epoch_id, epoch_size, epoch_id)
       m.writer.add_summary(res[-2], epoch_id * epoch_size + step)
       loss_list.append(res[-1])
 

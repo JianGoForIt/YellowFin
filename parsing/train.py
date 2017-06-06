@@ -125,7 +125,7 @@ def train():
       print("Epoch: %d Valid F1: %.2f (%d trees)" % (i + 1, valid_f1, num))
       print('It took %.2f seconds' % (time.time() - start_time))
       
-      print("summary added step", i * len(loss) )
+      #print("summary added step", i * len(loss) )
       summ = tf.Summary(value=[tf.Summary.Value(tag="eval_perp", simple_value=valid_perplexity), ])
       m.writer.add_summary(summ, i * len(loss) )
 
