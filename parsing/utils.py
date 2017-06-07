@@ -114,7 +114,7 @@ class PTBModel(object):
 
     if config.opt_method == "Adam":
       print("using Adam")
-      optimizer = tf.train.AdamOptimizer()
+      optimizer = tf.train.AdamOptimizer(self.lr)
     elif config.opt_method == "YF":
       print("using YF")
       self.optimizer = optimizer = YFOptimizer()

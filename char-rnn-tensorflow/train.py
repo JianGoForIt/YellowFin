@@ -100,8 +100,7 @@ def train(args):
     n_core = 16
     with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=n_core,
                           inter_op_parallelism_threads=n_core,
-                          gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_mem_portion))) as sess,
-        tf.device("cpu:0"):
+                          gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_mem_portion))) as sess, tf.device("cpu:0") as devices:
         # instrument for tensorboard
         summaries = tf.summary.merge(model.train_summary)
         writer = tf.summary.FileWriter(

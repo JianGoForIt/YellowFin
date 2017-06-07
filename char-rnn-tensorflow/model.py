@@ -91,6 +91,7 @@ class Model():
                 print "using YF"
                 self.optimizer = optimizer = YFOptimizer()
             elif opt_method == "SGD":
+		print "using SGD"
                 self.optimizer = optimizer = tf.train.MomentumOptimizer(self.lr)
             else:
                 raise Exception("please use either adam or YF")
