@@ -53,7 +53,8 @@ def main():
                             'model.ckpt-*'      : file(s) with model definition (created by tf)
                         """)
     args = parser.parse_args()
-    train(args)
+    with tf.device("cpu:0"):
+        train(args)
 
 
 def train(args):
@@ -91,10 +92,16 @@ def train(args):
     with open(os.path.join(args.save_dir, 'chars_vocab.pkl'), 'wb') as f:
         cPickle.dump((data_loader.chars, data_loader.vocab), f)
 
-    model = Model(args, opt_method="Adam")
+    # model = Model(args, opt_method="Adam")
+    model = Model(args, opt_method="SGD")
     loss_list = []
     eval_loss_list = []
-    with tf.Session() as sess:
+    gpu_mem_portion=0.005
+    n_core = 16
+    with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=n_core,
+                          inter_op_parallelism_threads=n_core,
+                          gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_mem_portion))) as sess,
+        tf.device("cpu:0"):
         # instrument for tensorboard
         summaries = tf.summary.merge(model.train_summary)
         writer = tf.summary.FileWriter(
