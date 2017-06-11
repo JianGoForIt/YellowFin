@@ -12,7 +12,7 @@ GATE_OP = 1
 GATE_GRAPH = 2
 
 class YFOptimizer(object):
-  def __init__(self, lr=1.0, mu=0.0, clip_thresh=None, beta=0.999, curv_win_width=20,
+  def __init__(self, lr=0.1, mu=0.0, clip_thresh=None, beta=0.999, curv_win_width=20,
     mu_update_interval=1, zero_debias=True, delta_mu=0.0):
     '''
     clip thresh is the threshold value on ||lr * gradient||
