@@ -117,7 +117,7 @@ class PTBModel(object):
       optimizer = tf.train.AdamOptimizer(self.lr)
     elif config.opt_method == "YF":
       print("using YF")
-      self.optimizer = optimizer = YFOptimizer()
+      self.optimizer = optimizer = YFOptimizer(lr=1.0, mu=0.0)
     else:
       #print("uisng SGD")
       #optimizer = tf.train.GradientDescentOptimizer(self.lr)
