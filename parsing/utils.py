@@ -119,9 +119,11 @@ class PTBModel(object):
       print("using YF")
       self.optimizer = optimizer = YFOptimizer()
     else:
-      print("uisng SGD")
-      optimizer = tf.train.GradientDescentOptimizer(self.lr)
-  
+      #print("uisng SGD")
+      #optimizer = tf.train.GradientDescentOptimizer(self.lr)
+      print("uisng mom SGD")
+      optimizer = tf.train.MomentumOptimizer(self.lr, 0.9)  
+
     self._train_op = optimizer.apply_gradients(zip(grads, tvars))
 
     self.train_loss_summary = tf.summary.scalar('train_loss', self._norm_loss)
