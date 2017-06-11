@@ -124,7 +124,6 @@ test_perp_list = []
 with sv.managed_session(config=tf.ConfigProto(inter_op_parallelism_threads=n_core,
           intra_op_parallelism_threads=n_core, 
           gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5))) as sess:
-  tf.set_random_seed(2)
   sess.run(init_op)
   state = sess.run(m.initial_state)
   # costs and iters are for calculating perplexity

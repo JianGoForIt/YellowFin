@@ -34,7 +34,6 @@ tf.reset_default_graph()
 # construct train model and session
 batch_size_train = 128
 batch_size_test = 100
-tf.set_random_seed(1)
 hps_train = resnet_model.HParams(batch_size=batch_size_train,
                                 num_classes=NUM_CLASSES,
                                 # note these dummy params lr, mom and clip are just for adaptation of the model implementation, it is not relevant to the optimizer
@@ -68,7 +67,6 @@ display_interval=2500
 if not os.path.isdir(log_dir):
   os.mkdir(log_dir)
 
-tf.set_random_seed(1)
 sess.run(init_op)
 
 loss_list = []
