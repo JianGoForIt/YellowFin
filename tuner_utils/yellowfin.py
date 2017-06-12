@@ -30,7 +30,9 @@ class YFOptimizer(object):
       If you want to manually control the learning rates, self.lr_factor is
       an interface to the outside, it is an multiplier for the internal learning rate
       in YellowFin. It is helpful when you want to do additional hand tuning
-      or some decaying scheme to the tuned learning rate in YellowFin.
+      or some decaying scheme to the tuned learning rate in YellowFin. 
+      Example on using lr_factor can be found here:
+      https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L140
     '''
     self._lr = lr
     self._mu = mu
