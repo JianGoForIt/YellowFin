@@ -112,7 +112,7 @@ def test_lr_mu():
     g_norm_avg = 0.0
     g_avg = 0.0
     target_dist = 0.0
-    target_lr = 1.0
+    target_lr = 0.1
     target_mu = 0.0
     for i in range(n_iter):
     
