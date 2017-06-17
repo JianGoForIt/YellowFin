@@ -50,3 +50,6 @@ mkdir -p models/wsj && python train.py --data_path=wsj --model_path=models/wsj/m
 ```
 Note the WSJ is not public available. Please contact us or the author of [Parsing LSTM repo](https://github.com/cdg720/emnlp2016) for the access of the data. The data can be preprocessed following the instructions in [Parsing LSTM repo](https://github.com/cdg720/emnlp2016). Based on the preprocessed data, you can run our scripts.
 
+
+### PyTorch implementation
+[YellowFin PyTorch repo](https://github.com/JianGoForIt/YellowFin_Pytorch)
