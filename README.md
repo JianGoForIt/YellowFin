@@ -51,5 +51,13 @@ mkdir -p models/wsj && python train.py --data_path=wsj --model_path=models/wsj/m
 Note the WSJ is not public available. Please contact us or the author of [Parsing LSTM repo](https://github.com/cdg720/emnlp2016) for the access of the data. The data can be preprocessed following the instructions in [Parsing LSTM repo](https://github.com/cdg720/emnlp2016). Based on the preprocessed data, you can run our scripts.
 
 
+## Detailed guidelines
+a. YFOptimizer(lr=1.0, mu=0.0) sets initial learnig rate and momentum to 1.0 and 0.0 respectively. This is the uniform setting (i.e. without tuning) for all our PyTorch and Tensorflow experiments. Typically, after a few thousand minibatches, the influence of these initial values diminish.
+
+b. If you want to clip gradient, you can also consider using the ```clip_thresh``` argument when initializing the YFOptimizer.
+
+c. If you want to use the typical lr-dropping technique after a ceritain number of epochs, or you want to more finely control the learning rate, please use ```lr_factor``` in the YFOptimizer class. More details can be found [here](https://github.com/JianGoForIt/YellowFin/blob/master/tuner_utils/yellowfin.py#L30). 
+
+
 ### PyTorch implementation
 [YellowFin PyTorch repo](https://github.com/JianGoForIt/YellowFin_Pytorch)
