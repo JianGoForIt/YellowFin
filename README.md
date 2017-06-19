@@ -20,7 +20,7 @@ cd data
 bash download.sh
 ```
 
-### run CIFAR10/100 ResNets experiments
+### Run CIFAR10/100 ResNets experiments
 The experiments on 110 layer ResNet with CIFAR10 and 164 layer ResNet with CIFAR100 can be launched using
 ```
 cd cifar/scripts
@@ -28,21 +28,21 @@ python CIFAR10-release.py (for CIFAR10)
 python CIFAR100-release.py (for CIFAR10)
 ```
 
-### run Penn Treebank LSTM experiments
+### Run Penn Treebank LSTM experiments
 The experiments on multiple-layer LSTM on Penn Treebank can be launched using
 ```
 cd ptb/scripts
 python PTB-release.py
 ```
 
-### run Char Rnn LSTM experiments
+### Run Char Rnn LSTM experiments
 The experiments on Char Rnn LSTM with TinyShakespeare dataset can be launched using
 ```
 cd char-rnn-tensorflow
 python train_YF.py --log_dir=path_to_log --data_dir=./data/tinyshakespeare/
 ```
 
-### run constituency parsing LSTM experiments
+### Run constituency parsing LSTM experiments
 The experiments on constituency parsing with the Wall Street Journal (WSJ) dataset can be launched using
 ```
 cd parsing
