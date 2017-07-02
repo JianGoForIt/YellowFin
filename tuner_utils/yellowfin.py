@@ -201,7 +201,7 @@ class YFOptimizer(object):
 
 
   def apply_gradients(self, grads_tvars, global_step=None):
-    self._grads, self._tvars = zip(*grads_tvars)
+    self._grads, self._tvars = zip(*[(g,t) for g,t in grads_tvars if g is not None])
 
     with tf.variable_scope("apply_updates"):
       if self._clip_thresh_var is not None:
