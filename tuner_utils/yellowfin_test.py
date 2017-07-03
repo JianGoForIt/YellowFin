@@ -92,7 +92,7 @@ def test_measurement():
 
 
 def test_lr_mu():
-  opt = YFOptimizer(zero_debias=False)
+  opt = YFOptimizer(learning_rate=0.5, momentum=0.5, zero_debias=False)
   w = tf.Variable(np.ones([n_dim, ] ), dtype=tf.float32, name="w", trainable=True)
   b = tf.Variable(np.ones([1, ], dtype=np.float32), dtype=tf.float32, name="b", trainable=True)
   x = tf.constant(np.ones([n_dim, ], dtype=np.float32), dtype=tf.float32)
@@ -112,8 +112,8 @@ def test_lr_mu():
     g_norm_avg = 0.0
     g_avg = 0.0
     target_dist = 0.0
-    target_lr = 0.1
-    target_mu = 0.0
+    target_lr = 0.5
+    target_mu = 0.5
     for i in range(n_iter):
     
       sess.run(tf.assign(w_grad_val, (i + 1) * np.ones( [n_dim, ], dtype=np.float32) ) )

@@ -12,7 +12,7 @@ GATE_OP = 1
 GATE_GRAPH = 2
 
 class YFOptimizer(object):
-  def __init__(self, lr=0.1, mu=0.0, clip_thresh=None, beta=0.999, curv_win_width=20,
+  def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None, beta=0.999, curv_win_width=20,
     mu_update_interval=1, zero_debias=True, delta_mu=0.0):
     '''
     clip thresh is the threshold value on ||lr * gradient||
@@ -34,11 +34,11 @@ class YFOptimizer(object):
       Example on using lr_factor can be found here:
       https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L140
     '''
-    self._lr = lr
-    self._mu = mu
+    self._lr = learning_rate
+    self._mu = momentum
 
-    self._lr_var = tf.Variable(lr, dtype=tf.float32, name="YF_lr", trainable=False)
-    self._mu_var = tf.Variable(mu, dtype=tf.float32, name="YF_mu", trainable=False)
+    self._lr_var = tf.Variable(learning_rate, dtype=tf.float32, name="YF_lr", trainable=False)
+    self._mu_var = tf.Variable(momentum, dtype=tf.float32, name="YF_mu", trainable=False)
     # for step scheme or decaying scheme for the learning rates
     self.lr_factor = tf.Variable(1.0, dtype=tf.float32, name="YF_lr_factor", trainable=False)
     if clip_thresh is not None:

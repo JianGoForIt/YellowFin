@@ -36,7 +36,7 @@ def main():
                         help='save frequency')
     parser.add_argument('--grad_clip', type=float, default=5.,
                         help='clip gradients at this value')
-    parser.add_argument('--learning_rate', type=float, default=0.002,
+    parser.add_argument('--learning_rate', type=float, default=1.0,
                         help='learning rate')
     parser.add_argument('--decay_rate', type=float, default=0.97,
                         help='decay rate for rmsprop')
@@ -132,7 +132,6 @@ def train(args):
               .format( (e + 1) * data_loader.num_batches,
                       args.num_epochs * data_loader.num_batches,
                       0, eval_loss, end - start))
-
 
         for e in range(args.num_epochs):
             sess.run(tf.assign(model.lr,
