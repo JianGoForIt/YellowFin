@@ -137,6 +137,7 @@ class YFOptimizer(object):
     self._grad_squared = []
     self._grad_norm_squared = []
     for v, g in zip(self._tvars, self._grads):
+      if g is None: continue
       with ops.colocate_with(v):
         self._grad_squared.append(tf.square(g) )
     self._grad_norm_squared = [tf.reduce_sum(grad_squared) for grad_squared in self._grad_squared]
