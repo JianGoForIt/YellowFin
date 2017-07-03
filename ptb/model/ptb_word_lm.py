@@ -201,7 +201,7 @@ class PTBModel(object):
       self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars), 
         global_step=tf.contrib.framework.get_or_create_global_step())
     elif opt_method == 'YF':
-      optimizer = YFOptimizer(lr=1.0, mu=0.0)
+      optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
       self._train_op = optimizer.apply_gradients(zip(self.grads, tvars) )
     else:
       raise Exception("optimizer not supported")

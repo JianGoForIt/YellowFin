@@ -113,6 +113,8 @@ def train(args):
         if args.init_from is not None:
             saver.restore(sess, ckpt.model_checkpoint_path)
 
+        
+
         # do evaluation
         e = -1
         eval_loss = 0.0

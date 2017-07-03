@@ -89,7 +89,7 @@ class Model():
                 self.optimizer = optimizer = tf.train.AdamOptimizer(self.lr)
             elif opt_method == "YF":
                 print "using YF"
-                self.optimizer = optimizer = YFOptimizer(lr=1.0, mu=0.0)
+                self.optimizer = optimizer = YFOptimizer(learning_rate=args.learning_rate, momentum=0.0)
             elif opt_method == "SGD":
 		print "using SGD"
                 self.optimizer = optimizer = tf.train.MomentumOptimizer(self.lr, 0.9)
