@@ -235,7 +235,8 @@ class YFOptimizer(object):
                                              aggregation_method=aggregation_method,
                                              colocate_gradients_with_ops=colocate_gradients_with_ops,
                                              grad_loss=grad_loss)
-  
+ 
+
   def minimize(self, loss, global_step=None, var_list=None,
                gate_gradients=GATE_OP, aggregation_method=None,
                colocate_gradients_with_ops=False, name=None,
@@ -264,5 +265,3 @@ class YFOptimizer(object):
       print("v ", v)
 
     return self.apply_gradients(grads_and_vars)
-
-        
