@@ -61,3 +61,7 @@ c. If you want to use the typical lr-dropping technique after a ceritain number 
 
 ### PyTorch implementation
 [YellowFin PyTorch repo](https://github.com/JianGoForIt/YellowFin_Pytorch)
+
+[YellowFin Theano Repo](https://gist.github.com/botev/f8b32c00eafee222e47393f7f0747666) 
+
+We thank the contributors for YellowFin in different deep learning frameworks.
