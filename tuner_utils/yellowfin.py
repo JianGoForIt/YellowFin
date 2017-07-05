@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import numpy as np
 from math import ceil, floor
 import tensorflow as tf
@@ -135,6 +137,7 @@ class YFOptimizer(object):
     self._grad_squared = []
     self._grad_norm_squared = []
     for v, g in zip(self._tvars, self._grads):
+      if g is None: continue
       with ops.colocate_with(v):
         self._grad_squared.append(tf.square(g) )
     self._grad_norm_squared = [tf.reduce_sum(grad_squared) for grad_squared in self._grad_squared]
@@ -198,8 +201,8 @@ class YFOptimizer(object):
     return assign_hyper_op
 
 
-  def apply_gradients(self, grads_tvars):
-    self._grads, self._tvars = zip(*grads_tvars)
+  def apply_gradients(self, grads_tvars, global_step=None):
+    self._grads, self._tvars = zip(*[(g,t) for g,t in grads_tvars if g is not None])
 
     with tf.variable_scope("apply_updates"):
       if self._clip_thresh_var is not None:
@@ -223,6 +226,16 @@ class YFOptimizer(object):
 
     return tf.group(apply_grad_op, after_apply_op, update_hyper_op, self._increment_global_step_op)
 
+
+  def compute_gradients(self, loss, var_list, global_step=None,
+                        gate_gradients=GATE_OP, aggregation_method=None,
+                        colocate_gradients_with_ops=False, name=None,
+                        grad_loss=None):
+    return self._optimizer.compute_gradients(loss, var_list=var_list, gate_gradients=gate_gradients,
+                                             aggregation_method=aggregation_method,
+                                             colocate_gradients_with_ops=colocate_gradients_with_ops,
+                                             grad_loss=grad_loss)
+ 
 
   def minimize(self, loss, global_step=None, var_list=None,
                gate_gradients=GATE_OP, aggregation_method=None,
@@ -248,9 +261,7 @@ class YFOptimizer(object):
           " that do not support gradients, between variables %s and loss %s." %
           ([str(v) for _, v in grads_and_vars], loss))
     for g, v in grads_and_vars:
-      print "g ", g
-      print "v ", v
+      print("g ", g)
+      print("v ", v)
 
     return self.apply_gradients(grads_and_vars)
-
-        
