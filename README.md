@@ -59,9 +59,9 @@ b. If you want to clip the gradient, you can also consider using the ```clip_thr
 c. If you want to use the typical lr-dropping technique after a ceritain number of epochs, or you want to more finely control the learning rate, please use ```lr_factor``` in the YFOptimizer class. More details can be found [here](https://github.com/JianGoForIt/YellowFin/blob/master/tuner_utils/yellowfin.py#L30). 
 
 
-### PyTorch implementation
-[YellowFin PyTorch repo](https://github.com/JianGoForIt/YellowFin_Pytorch)
+### Implementation for other platforms
+For PyTorch users, we implemented [YellowFin PyTorch repo](https://github.com/JianGoForIt/YellowFin_Pytorch)
 
-[YellowFin Theano Repo](https://gist.github.com/botev/f8b32c00eafee222e47393f7f0747666) 
+For Theano users, Github user [botev](https://github.com/botev) has already implemented a Theano version here: [YellowFin Theano Repo](https://gist.github.com/botev/f8b32c00eafee222e47393f7f0747666) 
 
 We thank the contributors for YellowFin in different deep learning frameworks.
