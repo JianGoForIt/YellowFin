@@ -62,7 +62,7 @@ c. If you want to use the typical lr-dropping technique after a ceritain number 
 ### Implementation for other platforms
 For PyTorch users, we implemented [YellowFin PyTorch repo](https://github.com/JianGoForIt/YellowFin_Pytorch).
 
-For MXNet users, Github user [StargazerZhu](https://github.com/StargazerZhu) has already implemented a Theano version here: [YellowFin MXNet Repo](https://github.com/StargazerZhu/YellowFin_MXNet).
+<!---For MXNet users, Github user [StargazerZhu](https://github.com/StargazerZhu) has already implemented a Theano version here: [YellowFin MXNet Repo](https://github.com/StargazerZhu/YellowFin_MXNet).--->
 
 For Theano users, Github user [botev](https://github.com/botev) has already implemented a Theano version here: [YellowFin Theano Repo](https://gist.github.com/botev/f8b32c00eafee222e47393f7f0747666).
 
