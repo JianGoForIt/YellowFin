@@ -60,7 +60,7 @@ sess = GetTrainingSession(model_train, gpu_mem_portion=gpu_mem_portion)
 general_log_dir = "../results"
 if not os.path.isdir(general_log_dir):
   os.mkdir(general_log_dir)
-log_dir = general_log_dir + "/test-release-cifar10-final"
+log_dir = general_log_dir + "/test-release-cifar10-test-clip"
 num_step = 40001
 display_interval=2500
 

@@ -177,10 +177,11 @@ class YFOptimizer(object):
       tf.less(tf.real(roots), tf.constant(1.0) ) ), tf.less(tf.abs(tf.imag(roots) ), 1e-5) )
     # in case there are two duplicated roots satisfying the above condition
     root = tf.reshape(tf.gather(tf.gather(roots, tf.where(root_idx) ), tf.constant(0) ), shape=[] )
-    tf.assert_equal(tf.size(root), tf.constant(1) )
+    # tf.assert_equal(tf.size(root), tf.constant(1) )
 
     dr = self._h_max / self._h_min
-    mu = tf.maximum(tf.real(root)**2, ( (tf.sqrt(dr) - 1)/(tf.sqrt(dr) + 1) )**2)    
+    with tf.control_dependencies( [tf.assert_equal(tf.size(root), tf.constant(1) ), ] ):
+      mu = tf.maximum(tf.real(root)**2, ( (tf.sqrt(dr) - 1)/(tf.sqrt(dr) + 1) )**2)    
     return mu
 
 
@@ -206,16 +207,17 @@ class YFOptimizer(object):
 
     with tf.variable_scope("apply_updates"):
       if self._clip_thresh_var is not None:
-        self._grads_clip, self._grads_norm = tf.clip_by_global_norm(self._grads, self._clip_thresh_var)
+        self._grads, self._grads_norm = tf.clip_by_global_norm(self._grads, self._clip_thresh_var)
         apply_grad_op = \
-          self._optimizer.apply_gradients(zip(self._grads_clip, self._tvars) )
+          self._optimizer.apply_gradients(zip(self._grads, self._tvars) )
       else:
         apply_grad_op = \
           self._optimizer.apply_gradients(zip(self._grads, self._tvars) )
 
 
     with tf.variable_scope("after_apply"):
-      after_apply_op = self.after_apply()
+      with tf.control_dependencies( [apply_grad_op, ] ):
+        after_apply_op = self.after_apply()
 
     with tf.variable_scope("update_hyper"):
       with tf.control_dependencies( [after_apply_op] ):
