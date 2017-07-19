@@ -208,10 +208,10 @@ class YFOptimizer(object):
       if self._clip_thresh_var is not None:
         self._grads_clip, self._grads_norm = tf.clip_by_global_norm(self._grads, self._clip_thresh_var)
         apply_grad_op = \
-          self._optimizer.apply_gradients(zip(self._grads_clip, self._tvars) )
+          self._optimizer.apply_gradients(zip(self._grads_clip, self._tvars), global_step=global_step)
       else:
         apply_grad_op = \
-          self._optimizer.apply_gradients(zip(self._grads, self._tvars) )
+          self._optimizer.apply_gradients(zip(self._grads, self._tvars), global_step=global_step)
 
 
     with tf.variable_scope("after_apply"):
@@ -264,4 +264,4 @@ class YFOptimizer(object):
       print("g ", g)
       print("v ", v)
 
-    return self.apply_gradients(grads_and_vars)
+    return self.apply_gradients(grads_and_vars, global_step=global_step)
