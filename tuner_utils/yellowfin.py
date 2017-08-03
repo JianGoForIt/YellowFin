@@ -75,6 +75,7 @@ class YFOptimizer(object):
     # set up the curvature window
     self._curv_win = \
       tf.Variable(np.zeros( [self._curv_win_width, ] ), dtype=tf.float32, name="curv_win", trainable=False)
+    # we use log smoothing for curvature range
     self._curv_win = tf.scatter_update(self._curv_win, 
       self._global_step % self._curv_win_width, 
       tf.log(self._grad_norm_squared) )
@@ -180,7 +181,6 @@ class YFOptimizer(object):
       tf.less(tf.real(roots), tf.constant(1.0) ) ), tf.less(tf.abs(tf.imag(roots) ), 1e-5) )
     # in case there are two duplicated roots satisfying the above condition
     root = tf.reshape(tf.gather(tf.gather(roots, tf.where(root_idx) ), tf.constant(0) ), shape=[] )
-    # tf.assert_equal(tf.size(root), tf.constant(1) )
 
     dr = self._h_max / self._h_min
     with tf.control_dependencies( [tf.assert_equal(tf.size(root), tf.constant(1) ), ] ):
