@@ -128,7 +128,7 @@ class YFOptimizer(object):
     avg_op = self._moving_averager.apply([self._dist_to_opt] )
     dist_to_opt_ops.append(avg_op)
     with tf.control_dependencies([avg_op]):
-      self._dist_to_opt_avg = tf.identity(self._moving_averager.average(self._dist_to_opt) ) / sqrt(0.58)
+      self._dist_to_opt_avg = tf.identity(self._moving_averager.average(self._dist_to_opt) ) / tf.sqrt(0.58)
     return dist_to_opt_ops
 
 
