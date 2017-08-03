@@ -89,8 +89,8 @@ class YFOptimizer(object):
     with tf.control_dependencies([self._h_min_t, self._h_max_t] ):
       avg_op = self._moving_averager.apply([self._h_min_t, self._h_max_t] )
       with tf.control_dependencies([avg_op] ):
-        self._h_min = tf.exp(tf.identity(self._moving_averager.average(self._h_min_t) ) )
-        self._h_max = tf.exp(tf.identity(self._moving_averager.average(self._h_max_t) ) )
+        self._h_min = tf.exp(tf.identity(self._moving_averager.average(self._h_min_t) ) ) * 0.58
+        self._h_max = tf.exp(tf.identity(self._moving_averager.average(self._h_max_t) ) ) * 0.58
     curv_range_ops.append(avg_op)
     return curv_range_ops
 
@@ -110,7 +110,7 @@ class YFOptimizer(object):
       self._grad_avg_squared = [tf.square(val) for val in self._grad_avg]
     self._grad_var = tf.maximum(tf.constant(1e-6, dtype=self._grad_norm_squared_avg.dtype), 
       self._grad_norm_squared_avg \
-      - tf.add_n( [tf.reduce_sum(val) for val in self._grad_avg_squared] ) )
+      - tf.add_n( [tf.reduce_sum(val) for val in self._grad_avg_squared] ) ) * 0.58
     return grad_var_ops
 
 
@@ -128,7 +128,7 @@ class YFOptimizer(object):
     avg_op = self._moving_averager.apply([self._dist_to_opt] )
     dist_to_opt_ops.append(avg_op)
     with tf.control_dependencies([avg_op]):
-      self._dist_to_opt_avg = tf.identity(self._moving_averager.average(self._dist_to_opt) )
+      self._dist_to_opt_avg = tf.identity(self._moving_averager.average(self._dist_to_opt) ) / sqrt(0.58)
     return dist_to_opt_ops
 
 
