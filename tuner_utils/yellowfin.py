@@ -76,7 +76,8 @@ class YFOptimizer(object):
     self._curv_win = \
       tf.Variable(np.zeros( [self._curv_win_width, ] ), dtype=tf.float32, name="curv_win", trainable=False)
     self._curv_win = tf.scatter_update(self._curv_win, 
-      self._global_step % self._curv_win_width, self._grad_norm_squared)
+      self._global_step % self._curv_win_width, 
+      tf.log(self._grad_norm_squared) )
     # note here the iterations start from iteration 0
     valid_window = tf.slice(self._curv_win, tf.constant( [0, ] ), 
       tf.expand_dims(tf.minimum(tf.constant(self._curv_win_width), self._global_step + 1), dim=0) )
@@ -87,8 +88,8 @@ class YFOptimizer(object):
     with tf.control_dependencies([self._h_min_t, self._h_max_t] ):
       avg_op = self._moving_averager.apply([self._h_min_t, self._h_max_t] )
       with tf.control_dependencies([avg_op] ):
-        self._h_min = tf.identity(self._moving_averager.average(self._h_min_t) )
-        self._h_max = tf.identity(self._moving_averager.average(self._h_max_t) )
+        self._h_min = tf.exp(tf.identity(self._moving_averager.average(self._h_min_t) ) )
+        self._h_max = tf.exp(tf.identity(self._moving_averager.average(self._h_max_t) ) )
     curv_range_ops.append(avg_op)
     return curv_range_ops
 
@@ -106,7 +107,9 @@ class YFOptimizer(object):
     with tf.control_dependencies([avg_op] ):
       self._grad_avg = [self._moving_averager.average(val) for val in tensor_to_avg]
       self._grad_avg_squared = [tf.square(val) for val in self._grad_avg]
-    self._grad_var = self._grad_norm_squared_avg - tf.add_n( [tf.reduce_sum(val) for val in self._grad_avg_squared] )
+    self._grad_var = tf.maximum(tf.constant(1e-6, dtype=self._grad_avg.dtype), 
+      self._grad_norm_squared_avg \
+      - tf.add_n( [tf.reduce_sum(val) for val in self._grad_avg_squared] ) )
     return grad_var_ops
 
 
