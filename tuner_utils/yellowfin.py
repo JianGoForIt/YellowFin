@@ -107,7 +107,7 @@ class YFOptimizer(object):
     with tf.control_dependencies([avg_op] ):
       self._grad_avg = [self._moving_averager.average(val) for val in tensor_to_avg]
       self._grad_avg_squared = [tf.square(val) for val in self._grad_avg]
-    self._grad_var = tf.maximum(tf.constant(1e-6, dtype=self._grad_avg.dtype), 
+    self._grad_var = tf.maximum(tf.constant(1e-6, dtype=self._grad_norm_squared_avg.dtype), 
       self._grad_norm_squared_avg \
       - tf.add_n( [tf.reduce_sum(val) for val in self._grad_avg_squared] ) )
     return grad_var_ops
