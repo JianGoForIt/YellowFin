@@ -219,6 +219,10 @@ class YFOptimizer(object):
 
 
     with tf.variable_scope("after_apply"):
+      # the dependencies ideally only need to be after clip is done,
+      # i.e. dependes on self._grads. However, the control_dependencies
+      # does not support indexedslice for sparse gradients. The alternative
+      # dependencies here might slightly slower due to less parallelization.
       with tf.control_dependencies( [apply_grad_op, ] ):
         after_apply_op = self.after_apply()
 
