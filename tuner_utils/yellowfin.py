@@ -15,7 +15,7 @@ GATE_GRAPH = 2
 
 class YFOptimizer(object):
   def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None, beta=0.999, curv_win_width=20,
-    mu_update_interval=1, zero_debias=True, delta_mu=0.0):
+    mu_update_interval=1, zero_debias=True, delta_mu=0.0, sparsity_debias=True):
     '''
     clip thresh is the threshold value on ||lr * gradient||
     delta_mu can be place holder/variable/python scalar. They are used for additional
@@ -28,6 +28,10 @@ class YFOptimizer(object):
         if None, no clipping will be carried out. 
       beta: python scalar. The smoothing parameter for estimations.
       delta_mu: for extensions. Not necessary in the basic use.
+      sparsity_debias: gradient norm and curvature are biased to larger values when 
+      calculated with sparse gradient. This is useful when the model is very sparse,
+      e.g. LSTM with word embedding. For non-sparse CNN, turning it off could slightly
+      accelerate the speed.
     Other features:
       If you want to manually control the learning rates, self.lr_factor is
       an interface to the outside, it is an multiplier for the internal learning rate
@@ -63,6 +67,7 @@ class YFOptimizer(object):
     self._do_tune = tf.greater(self._global_step, tf.constant(0) )
 
     self._zero_debias = zero_debias
+    self._sparsity_debias = sparsity_debias
 
     self._tvars = None
 
@@ -91,6 +96,9 @@ class YFOptimizer(object):
       with tf.control_dependencies([avg_op] ):
         self._h_min = tf.exp(tf.identity(self._moving_averager.average(self._h_min_t) ) )
         self._h_max = tf.exp(tf.identity(self._moving_averager.average(self._h_max_t) ) )
+        if self._sparsity_debias:          
+          self._h_min = self._h_min * self._sparsity_avg
+          self._h_max = self._h_max * self._sparsity_avg
     curv_range_ops.append(avg_op)
     return curv_range_ops
 
@@ -111,6 +119,8 @@ class YFOptimizer(object):
     self._grad_var = tf.maximum(tf.constant(1e-6, dtype=self._grad_norm_squared_avg.dtype), 
       self._grad_norm_squared_avg \
       - tf.add_n( [tf.reduce_sum(val) for val in self._grad_avg_squared] ) )
+    if self._sparsity_debias:
+      self._grad_var *= self._sparsity_avg
     return grad_var_ops
 
 
@@ -129,7 +139,24 @@ class YFOptimizer(object):
     dist_to_opt_ops.append(avg_op)
     with tf.control_dependencies([avg_op]):
       self._dist_to_opt_avg = tf.identity(self._moving_averager.average(self._dist_to_opt) )
+      if self._sparsity_debias:
+        self._dist_to_opt_avg /= tf.sqrt(self._sparsity_avg)
     return dist_to_opt_ops
+
+
+  def grad_sparsity(self):
+    # if the sparse minibatch gradient has 10 percent of its entries non-zero.
+    # its sparsity is 0.1, the norm of dense gradient averaged from full dataset
+    # are roughly estimated norm of minibatch sparse gradient norm * sqrt(sparsity).
+    # An extension maybe only correct the sparse blob.
+    non_zero_cnt = tf.add_n( [tf.count_nonzero(g) for g in self._grads] )
+    all_entry_cnt = tf.add_n( [tf.size(g) for g in self._grads] )
+    self._sparsity = tf.cast(non_zero_cnt, self._grads[0].dtype) \
+      / tf.cast(all_entry_cnt, self._grads[0].dtype)
+    avg_op = self._moving_averager.apply( [self._sparsity,] )
+    with tf.control_dependencies( [avg_op] ):
+      self._sparsity_avg = self._moving_averager.average(self._sparsity)
+    return avg_op
 
 
   def after_apply(self):
@@ -145,6 +172,10 @@ class YFOptimizer(object):
       with ops.colocate_with(v):
         self._grad_squared.append(tf.square(g) )
     self._grad_norm_squared = [tf.reduce_sum(grad_squared) for grad_squared in self._grad_squared]
+
+    if self._sparsity_debias:
+      avg_op_sparsity = self.grad_sparsity()
+      after_apply_ops.append(avg_op_sparsity)
 
     # the following running average on squared norm of gradient is shared by grad_var and dist_to_opt
     avg_op = self._moving_averager.apply(self._grad_norm_squared)

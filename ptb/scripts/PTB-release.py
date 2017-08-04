@@ -113,7 +113,7 @@ n_core=20
 general_log_dir = "../results"
 if not os.path.isdir(general_log_dir):
   os.mkdir(general_log_dir)
-log_dir = general_log_dir + "/test-release-ptb"
+log_dir = general_log_dir + "/test-release-ptb-sparse-norm-auto"
 if not os.path.isdir(log_dir):
   os.mkdir(log_dir)
 
