@@ -4,6 +4,9 @@ YellowFin optimizer.
 YellowFin and the Art of Momentum Tuning
 https://arxiv.org/abs/1706.03471
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import numpy as np
 
@@ -13,7 +16,7 @@ from tensorflow.python.framework import ops
 
 
 class YFOptimizer(Optimizer):
- """Optimizer that implements the YellowFin algorithm."""
+  """Optimizer that implements the YellowFin algorithm."""
 
   def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None,
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
@@ -27,7 +30,7 @@ class YFOptimizer(Optimizer):
       momentum: Python scalar. The initial value of momentum, we use
         0.0 in our paper.
       clip_thresh: Python scalar. The cliping threshold for
-        `tf.clip_by_global_norm`. If None, no clipping will be carried out.
+        `tf.clip_by_global_norm`. If None, no clipping will be used.
       beta: Python scalar. The smoothing parameter for estimations.
       curv_win_width: TODO
       zero_debias: TODO
@@ -42,20 +45,19 @@ class YFOptimizer(Optimizer):
         applying gradients. Defaults to "YellowFin".
 
     Notes:
-    `clip_thresh` is the threshold value on ||lr * gradient||
-    `delta_mu` can be a placeholder/variable/python scalar. Used for
-    additional momentum in situations such as asynchronous-parallel
-    training. The default is 0.0 for basic usage of the optimizer.
+      `clip_thresh` is the threshold value on ||lr * gradient||
+      `delta_mu` can be a placeholder/variable/python scalar. Used for
+      additional momentum in situations such as asynchronous-parallel
+      training. The default is 0.0 for basic usage of the optimizer.
 
     Other features:
       If you want to manually control the learning rates,
       `self.lr_factor` is an interface to the outside. It is a
       multiplier for the internal learning rate in YellowFin. It is
       helpful when you want to do additional hand tuning or some
-      decaying scheme for the internal learning rate.
-      Example on using `lr_factor` can be found here:
+      decaying scheme for the internal learning rate. Example on using
+      `lr_factor` can be found here:
       https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L140
-
     """
     super(YFOptimizer, self).__init__(use_locking, name)
 
@@ -71,7 +73,8 @@ class YFOptimizer(Optimizer):
       1.0, dtype=tf.float32, name="YF_lr_factor", trainable=False)
     if clip_thresh is not None:
       self._clip_thresh_var = tf.Variable(
-        clip_thresh, dtype=tf.float32, name="YF_clip_thresh", trainable=False)
+        clip_thresh, dtype=tf.float32, name="YF_clip_thresh",
+        trainable=False)
     else:
       self._clip_thresh_var = None
 
@@ -101,8 +104,8 @@ class YFOptimizer(Optimizer):
   def curvature_range(self):
     # set up the curvature window
     self._curv_win = tf.Variable(
-      np.zeros([self._curv_win_width, ]), dtype=tf.float32, name="curv_win",
-      trainable=False)
+      np.zeros([self._curv_win_width, ]), dtype=tf.float32,
+      name="curv_win", trainable=False)
     # we use log smoothing for curvature range
     self._curv_win = tf.scatter_update(
       self._curv_win, self._global_step % self._curv_win_width,
@@ -117,15 +120,16 @@ class YFOptimizer(Optimizer):
 
     curv_range_ops = []
     with tf.control_dependencies([self._h_min_t, self._h_max_t]):
-      avg_op = self._moving_averager.apply([self._h_min_t, self._h_max_t])
+      avg_op = self._moving_averager.apply(
+        [self._h_min_t, self._h_max_t])
       with tf.control_dependencies([avg_op]):
         self._h_min = tf.exp(
           tf.identity(self._moving_averager.average(self._h_min_t)))
         self._h_max = tf.exp(
           tf.identity(self._moving_averager.average(self._h_max_t)))
-        if self._sparsity_debias:
-          self._h_min = self._h_min * self._sparsity_avg
-          self._h_max = self._h_max * self._sparsity_avg
+      if self._sparsity_debias:
+        self._h_min = self._h_min * self._sparsity_avg
+        self._h_max = self._h_max * self._sparsity_avg
     curv_range_ops.append(avg_op)
     return curv_range_ops
 
@@ -134,8 +138,10 @@ class YFOptimizer(Optimizer):
     tensor_to_avg = []
     for t, g in zip(self._tvars, self._grads):
       if isinstance(g, ops.IndexedSlices):
-       tensor_to_avg.append(tf.reshape(tf.unsorted_segment_sum(
-         g.values, g.indices, g.dense_shape[0]), shape=t.get_shape()))
+        tensor_to_avg.append(
+          tf.reshape(tf.unsorted_segment_sum(
+            g.values, g.indices, g.dense_shape[0]),
+            shape=t.get_shape()))
       else:
         tensor_to_avg.append(g)
     avg_op = self._moving_averager.apply(tensor_to_avg)
@@ -159,10 +165,12 @@ class YFOptimizer(Optimizer):
     avg_op = self._moving_averager.apply([self._grad_norm, ])
     dist_to_opt_ops.append(avg_op)
     with tf.control_dependencies([avg_op]):
-      self._grad_norm_avg = self._moving_averager.average(self._grad_norm)
+      self._grad_norm_avg = self._moving_averager.average(
+        self._grad_norm)
       # single iteration distance estimation
       # note that self._grad_norm_avg is per variable
-      self._dist_to_opt = self._grad_norm_avg / self._grad_norm_squared_avg
+      self._dist_to_opt = (self._grad_norm_avg
+                 / self._grad_norm_squared_avg)
     # running average of distance
     avg_op = self._moving_averager.apply([self._dist_to_opt])
     dist_to_opt_ops.append(avg_op)
@@ -174,9 +182,11 @@ class YFOptimizer(Optimizer):
     return dist_to_opt_ops
 
   def grad_sparsity(self):
-    # if the sparse minibatch gradient has 10 percent of its entries non-zero.
-    # its sparsity is 0.1, the norm of dense gradient averaged from full dataset
-    # are roughly estimated norm of minibatch sparse gradient norm * sqrt(sparsity).
+    # If the sparse minibatch gradient has 10 percent of its entries
+    # non-zero, its sparsity is 0.1.
+    # The norm of dense gradient averaged from full dataset
+    # are roughly estimated norm of minibatch
+    # sparse gradient norm * sqrt(sparsity)
     # An extension maybe only correct the sparse blob.
     non_zero_cnt = tf.add_n([tf.count_nonzero(g) for g in self._grads])
     all_entry_cnt = tf.add_n([tf.size(g) for g in self._grads])
@@ -208,12 +218,12 @@ class YFOptimizer(Optimizer):
       avg_op_sparsity = self.grad_sparsity()
       after_apply_ops.append(avg_op_sparsity)
 
-    # the following running average on squared norm of gradient is shared by
-    # `grad_variance` and `dist_to_opt`
+    # the following running average on squared norm of gradient is shared
+    # by `grad_variance` and `dist_to_opt`
     avg_op = self._moving_averager.apply(self._grad_norm_squared)
     with tf.control_dependencies([avg_op]):
-      self._grad_norm_squared_avg = [
-        self._moving_averager.average(val) for val in self._grad_norm_squared]
+      self._grad_norm_squared_avg = [self._moving_averager.average(val)
+                                     for val in self._grad_norm_squared]
       self._grad_norm_squared = tf.add_n(self._grad_norm_squared)
       self._grad_norm_squared_avg = tf.add_n(self._grad_norm_squared_avg)
     after_apply_ops.append(avg_op)
@@ -233,7 +243,8 @@ class YFOptimizer(Optimizer):
     return lr
 
   def get_mu_tensor(self):
-    const_fact = self._dist_to_opt_avg**2 * self._h_min**2 / 2 / self._grad_var
+    const_fact = (self._dist_to_opt_avg**2 * self._h_min**2
+                  / 2 / self._grad_var)
     coef = tf.Variable(
       [-1.0, 3.0, 0.0, 1.0], dtype=tf.float32, name="cubic_solver_coef")
     coef = tf.scatter_update(coef, tf.constant(2), -(3 + const_fact))
@@ -250,20 +261,21 @@ class YFOptimizer(Optimizer):
       shape=[])
 
     dr = self._h_max / self._h_min
-    with tf.control_dependencies(
-      [tf.assert_equal(tf.size(root), tf.constant(1)), ]):
-        mu = tf.maximum(
-          tf.real(root)**2, ((tf.sqrt(dr) - 1)/(tf.sqrt(dr) + 1))**2)
+    with tf.control_dependencies([tf.assert_equal(tf.size(root),
+                                 tf.constant(1)), ]):
+      mu = tf.maximum(
+        tf.real(root)**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
     return mu
 
   def update_hyper_param(self):
     assign_hyper_ops = []
-    self._mu = tf.identity(tf.cond(self._do_tune, lambda: self.get_mu_tensor(),
+    self._mu = tf.identity(tf.cond(
+      self._do_tune, lambda: self.get_mu_tensor(),
       lambda: self._mu_var))
     with tf.control_dependencies([self._mu]):
-      self._lr = tf.identity(
-        tf.cond(self._do_tune,
-          lambda: self.get_lr_tensor(), lambda: self._lr_var))
+      self._lr = tf.identity(tf.cond(
+        self._do_tune, lambda: self.get_lr_tensor(),
+        lambda: self._lr_var))
 
     with tf.control_dependencies([self._mu, self._lr]):
       self._mu = self._beta * self._mu_var + (1 - self._beta) * self._mu
@@ -275,25 +287,24 @@ class YFOptimizer(Optimizer):
 
   def apply_gradients(self, grads_tvars, global_step=None, name=None):
     self._grads, self._tvars = zip(
-      *[(g,t) for g,t in grads_tvars if g is not None])
+      *[(g, t) for g, t in grads_tvars if g is not None])
 
     with tf.variable_scope("apply_updates"):
       if self._clip_thresh_var is not None:
         self._grads, self._grads_norm = tf.clip_by_global_norm(
           self._grads, self._clip_thresh_var)
-        apply_grad_op = \
-          self._optimizer.apply_gradients(
-            zip(self._grads, self._tvars), global_step, name)
+        apply_grad_op = self._optimizer.apply_gradients(
+          zip(self._grads, self._tvars), global_step, name)
       else:
-        apply_grad_op = \
-          self._optimizer.apply_gradients(
-            zip(self._grads, self._tvars), global_step, name)
+        apply_grad_op = self._optimizer.apply_gradients(
+          zip(self._grads, self._tvars), global_step, name)
 
     with tf.variable_scope("after_apply"):
       # the dependencies ideally only need to be after clip is done,
       # i.e. dependes on self._grads. However, the control_dependencies
-      # does not support indexedslice for sparse gradients. The alternative
-      # dependencies here might slightly slower due to less parallelization.
+      # does not support indexed slice for sparse gradients.
+      # The alternative dependencies here might be slightly slower due
+      # to less parallelization.
       with tf.control_dependencies([apply_grad_op, ]):
         after_apply_op = self.after_apply()
 
@@ -305,13 +316,14 @@ class YFOptimizer(Optimizer):
       self._increment_global_step_op = tf.assign(
         self._global_step, self._global_step + 1)
 
-    return tf.group(
-      apply_grad_op, after_apply_op, update_hyper_op,
-      self._increment_global_step_op)
+    return tf.group(apply_grad_op, after_apply_op, update_hyper_op,
+                    self._increment_global_step_op)
 
-  def compute_gradients(self, loss, var_list=None, gate_gradients=
-                        Optimizer.GATE_OP, aggregation_method=None,
-                        colocate_gradients_with_ops=False, grad_loss=None):
+  def compute_gradients(self, loss, var_list=None,
+                        gate_gradients=Optimizer.GATE_OP,
+                        aggregation_method=None,
+                        colocate_gradients_with_ops=False,
+                        grad_loss=None):
     return self._optimizer.compute_gradients(
       loss, var_list=var_list, gate_gradients=gate_gradients,
       aggregation_method=aggregation_method,
@@ -322,24 +334,27 @@ class YFOptimizer(Optimizer):
                gate_gradients=Optimizer.GATE_OP, aggregation_method=None,
                colocate_gradients_with_ops=False, name=None,
                grad_loss=None):
-    """Adapted from Tensorflow Optimizer base class member function:
-    Add operations to minimize `loss` by updating `var_list`.
+    """Add operations to minimize `loss` by updating `var_list`.
+
     This method simply combines calls `compute_gradients()` and
-    `apply_gradients()`. If you want to process the gradient before applying
-    them call `tf.gradients()` and `self.apply_gradients()` explicitly instead
-    of using this function.
+    `apply_gradients()`. If you want to process the gradient before
+    applying them, call `tf.gradients()` and `self.apply_gradients()`
+    explicitly instead of using this function.
+
+    Adapted from Tensorflow Optimizer base class member function.
     """
     grads_and_vars = self._optimizer.compute_gradients(
-        loss, var_list=var_list, gate_gradients=gate_gradients,
-        aggregation_method=aggregation_method,
-        colocate_gradients_with_ops=colocate_gradients_with_ops,
-        grad_loss=grad_loss)
+      loss, var_list=var_list, gate_gradients=gate_gradients,
+      aggregation_method=aggregation_method,
+      colocate_gradients_with_ops=colocate_gradients_with_ops,
+      grad_loss=grad_loss)
 
     vars_with_grad = [v for g, v in grads_and_vars if g is not None]
     if not vars_with_grad:
       raise ValueError(
-          "No gradients provided for any variable, check your graph for ops"
-          " that do not support gradients, between variables %s and loss %s." %
-          ([str(v) for _, v in grads_and_vars], loss))
+        "No gradients provided for any variable, check your graph for "
+        "ops that do not support gradients, between variables "
+        "%s and loss %s." %
+        ([str(v) for _, v in grads_and_vars], loss))
 
     return self.apply_gradients(grads_and_vars, global_step, name)
