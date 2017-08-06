@@ -72,6 +72,17 @@ Note the WSJ is not public available. Please contact us or the author of [Parsin
 
 * **Sparsity**: Gradient norm, curvature estimations etc., when calculated with sparse gradient, are biased to larger values than the counterpart from the dense gradient on the full dataset. The bias can be illustrated using the following example: the norm of vectors (1.0, 0.0), (0.0, 1.0) and the norm of their average (0.5, 0.5). The norm of the latter is sqrt(sparsity (i.e. 0.5 here) ) * the norm of the former. The sparsity debias feature is useful when the model is very sparse, e.g. LSTM with word embedding. For non-sparse models, e.g. CNN, turning this feature off could slightly speedup.
 
+## Citation
+If you use YellowFin in your paper, please cite the paper:
+```
+@article{zhang2017yellowfin,
+  title={YellowFin and the Art of Momentum Tuning},
+  author={Zhang, Jian and Mitliagkas, Ioannis and R{\'e}, Christopher},
+  journal={arXiv preprint arXiv:1706.03471},
+  year={2017}
+}
+```
+
 ### Implementation for other platforms
 For PyTorch users, we implemented [YellowFin PyTorch repo](https://github.com/JianGoForIt/YellowFin_Pytorch).
 
