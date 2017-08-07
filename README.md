@@ -8,6 +8,8 @@ For more technical details, please refer to our paper [YellowFin and the Art of 
 
 For more usage details, please refer to the inline documentation of ```tuner_utils/yellowfin.py```. Example usage can be found here for [CIFAR](https://github.com/JianGoForIt/YellowFin/blob/master/cifar/model/resnet_model.py#L160) and [PTB](https://github.com/JianGoForIt/YellowFin/blob/master/ptb/model/ptb_word_lm.py#L203).
 
+**YellowFin is under active development. Many members of the community have kindly submitted issues and pull requests. We are incorporating fixes and smoothing things out. As a result the repository code is in flux. Please make sure you use the latest version and submit any issues you might have!**
+
 
 ## Updates
 **[2017.08.06] Switched to logrithmic smoothing to accelerate adaptation to curvature range trends.**
