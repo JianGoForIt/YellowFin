@@ -11,16 +11,24 @@ from __future__ import print_function
 import numpy as np
 
 import tensorflow as tf
-from tensorflow.python.training.optimizer import Optimizer
 from tensorflow.python.framework import ops
 
 
-class YFOptimizer(Optimizer):
-  """Optimizer that implements the YellowFin algorithm."""
+class YFOptimizer(object):
+  """
+  Optimizer that implements the YellowFin algorithm.
+
+  Implemented as a wrapper around tf.train.MomentumOptimizer
+  """
+  # Available gate_gradients values
+  GATE_NONE = tf.train.Optimizer.GATE_NONE
+  GATE_OP = tf.train.Optimizer.GATE_OP
+  GATE_GRAPH = tf.train.Optimizer.GATE_GRAPH
 
   def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None,
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
-               sparsity_debias=True, use_locking=False, name="YellowFin"):
+               sparsity_debias=True, use_locking=False, name="YellowFin",
+               use_nesterov=False):
     """
     Construct a new YellowFin optimizer.
 
@@ -40,9 +48,11 @@ class YFOptimizer(Optimizer):
         This is useful when the model is very sparse, e.g. LSTM with
         word embedding. For non-sparse CNN, turning it off could
         slightly accelerate the speed.
-      use_locking: If `True`, use locks for update operations.
+      use_locking: If True, use locks for update operations.
       name: Optional name prefix for the operations created when
         applying gradients. Defaults to "YellowFin".
+      use_nesterov: If True, the underlying MomentumOptimizer uses Nesterov
+        Momentum. Set to False in the default YellowFin algorithm.
 
     Notes:
       `clip_thresh` is the threshold value on ||lr * gradient||
@@ -59,7 +69,6 @@ class YFOptimizer(Optimizer):
       `lr_factor` can be found here:
       https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L140
     """
-    super(YFOptimizer, self).__init__(use_locking, name)
 
     self._lr = learning_rate
     self._mu = momentum
@@ -80,7 +89,8 @@ class YFOptimizer(Optimizer):
 
     # the underlying momentum optimizer
     self._optimizer = tf.train.MomentumOptimizer(
-      self._lr_var * self.lr_factor, self._mu_var + delta_mu)
+      self._lr_var * self.lr_factor, self._mu_var + delta_mu,
+      use_locking, name, use_nesterov)
 
     # moving average for statistics
     self._beta = beta
@@ -285,6 +295,9 @@ class YFOptimizer(Optimizer):
     assign_hyper_op = tf.group(*assign_hyper_ops)
     return assign_hyper_op
 
+  def get_name(self):
+      return self._optimizer.get_name()
+
   def apply_gradients(self, grads_tvars, global_step=None, name=None):
     self._grads, self._tvars = zip(
       *[(g, t) for g, t in grads_tvars if g is not None])
@@ -320,19 +333,22 @@ class YFOptimizer(Optimizer):
                     self._increment_global_step_op)
 
   def compute_gradients(self, loss, var_list=None,
-                        gate_gradients=Optimizer.GATE_OP,
+                        gate_gradients=GATE_OP,
                         aggregation_method=None,
                         colocate_gradients_with_ops=False,
                         grad_loss=None):
     return self._optimizer.compute_gradients(
-      loss, var_list=var_list, gate_gradients=gate_gradients,
+      loss, var_list=var_list,
+      gate_gradients=gate_gradients,
       aggregation_method=aggregation_method,
       colocate_gradients_with_ops=colocate_gradients_with_ops,
       grad_loss=grad_loss)
 
   def minimize(self, loss, global_step=None, var_list=None,
-               gate_gradients=Optimizer.GATE_OP, aggregation_method=None,
-               colocate_gradients_with_ops=False, name=None,
+               gate_gradients=GATE_OP,
+               aggregation_method=None,
+               colocate_gradients_with_ops=False,
+               name=None,
                grad_loss=None):
     """Add operations to minimize `loss` by updating `var_list`.
 
@@ -344,7 +360,8 @@ class YFOptimizer(Optimizer):
     Adapted from Tensorflow Optimizer base class member function.
     """
     grads_and_vars = self._optimizer.compute_gradients(
-      loss, var_list=var_list, gate_gradients=gate_gradients,
+      loss, var_list=var_list,
+      gate_gradients=gate_gradients,
       aggregation_method=aggregation_method,
       colocate_gradients_with_ops=colocate_gradients_with_ops,
       grad_loss=grad_loss)
@@ -358,3 +375,27 @@ class YFOptimizer(Optimizer):
         ([str(v) for _, v in grads_and_vars], loss))
 
     return self.apply_gradients(grads_and_vars, global_step, name)
+
+  def get_slot(self, var, name):
+    """
+    Return a slot named `name` created for `var` by
+    the underlying MomentumOptimizer.
+
+    Args:
+      var: A variable passed to `minimize()` or `apply_gradients()`.
+      name: A string.
+
+    Returns:
+      The `Variable` for the slot if it was created, `None` otherwise.
+    """
+    return self._optimizer.get_slot(var, name)
+
+  def get_slot_names(self):
+    """
+    Return a list of the names of the slots created by the
+    underlying MomentumOptimizer.
+
+    Returns:
+      A list of strings.
+    """
+    return self._optimizer.get_slot_names()
