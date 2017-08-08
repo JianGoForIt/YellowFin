@@ -1,3 +1,4 @@
+from __future__ import print_function
 import collections, gzip, time
 import numpy as np
 import tensorflow as tf
@@ -19,7 +20,7 @@ class MediumConfig(object):
   max_epoch = 14
   max_max_epoch = 50
   keep_prob = 0.5
-  # correction: for wsj model, we use 0.9. 
+  # correction: for wsj model, we use 0.9.
   lr_decay = 0.9
   batch_size = 20
   opt_method = None
@@ -122,7 +123,7 @@ class PTBModel(object):
       #print("uisng SGD")
       #optimizer = tf.train.GradientDescentOptimizer(self.lr)
       print("uisng mom SGD")
-      optimizer = tf.train.MomentumOptimizer(self.lr, 0.9)  
+      optimizer = tf.train.MomentumOptimizer(self.lr, 0.9)
 
     self._train_op = optimizer.apply_gradients(zip(grads, tvars))
 
@@ -179,7 +180,7 @@ def _build_vocab(filename):
 def _read_words(filename):
   with open_file(filename) as f:
     return f.read().replace('\n', '<eos>').split()
-  
+
 
 def chop(data, eos):
   new_data = []
@@ -217,7 +218,7 @@ def ptb_iterator(raw_data, batch_size, num_steps):
     x = data[:, i*num_steps:(i+1)*num_steps]
     y = data[:, i*num_steps+1:(i+1)*num_steps+1]
     yield (x, y)
-    
+
 
 # iterator used for nbest data.
 def ptb_iterator2(raw_data, batch_size, num_steps, idx2tree, eos):
@@ -232,7 +233,7 @@ def ptb_iterator2(raw_data, batch_size, num_steps, idx2tree, eos):
   data_len = len(raw_data)
   batch_len = data_len // batch_size
   remainder = (data_len // batch_size) % num_steps
-    
+
   data = np.zeros([batch_size, batch_len + num_steps - remainder + 1],
                   dtype=np.int32)
   for i in range(batch_size):
@@ -240,7 +241,7 @@ def ptb_iterator2(raw_data, batch_size, num_steps, idx2tree, eos):
     if i == 0:
       data[i, 0] = eos
     else:
-      data[i, 0] = raw_data[batch_len - 1]        
+      data[i, 0] = raw_data[batch_len - 1]
   idx2tree = np.array(idx2tree, dtype=np.dtype('int, int'))
   tree = np.zeros([batch_size, batch_len + num_steps - remainder],
                   dtype=np.dtype('int, int'))
@@ -325,7 +326,7 @@ def run_epoch2(session, m, nbest, eval_op, eos, verbose=False):
       loss[-1].append(0.)
     counts[-1][-1] += 1
     prev = pair
-  data = nbest['data']    
+  data = nbest['data']
   epoch_size = ((len(data) // m.batch_size) - 1) // m.num_steps
   start_time = time.time()
   costs = 0.0
@@ -361,7 +362,7 @@ def run_epoch2(session, m, nbest, eval_op, eos, verbose=False):
         continue
       counts[tree_idx[0]][tree_idx[1]] -= 1
       loss[tree_idx[0]][tree_idx[1]] += cost[idx[0]][idx[1]]
-              
+
     if verbose and step % (epoch_size // 10) == 10:
       print("%.3f perplexity: %.3f speed: %.0f wps" %
             (step * 1.0 / epoch_size, np.exp(costs / iters),
@@ -384,7 +385,7 @@ def run_epoch2(session, m, nbest, eval_op, eos, verbose=False):
         min_val = loss[i][j]
         ag = j
     if good:
-      num += 1      
+      num += 1
       gold += scores[i][ag]['gold']
       test += scores[i][ag]['test']
       matched += scores[i][ag]['matched']
@@ -446,7 +447,7 @@ def nbest_iterator(raw_data, batch_size, num_steps, idx2tree, eos):
   data_len = len(raw_data)
   batch_len = data_len // batch_size
   remainder = (data_len // batch_size) % num_steps
-    
+
   data = np.zeros([batch_size, batch_len + num_steps - remainder + 1],
                   dtype=np.int32)
   for i in range(batch_size):
@@ -454,7 +455,7 @@ def nbest_iterator(raw_data, batch_size, num_steps, idx2tree, eos):
     if i == 0:
       data[i, 0] = eos
     else:
-      data[i, 0] = raw_data[batch_len - 1]        
+      data[i, 0] = raw_data[batch_len - 1]
   idx2tree = np.array(idx2tree, dtype=np.dtype('int, int'))
   tree = np.zeros([batch_size, batch_len + num_steps - remainder],
                   dtype=np.dtype('int, int'))

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import gzip
 import os
 import sys
@@ -37,7 +38,7 @@ batch_size_test = 100
 hps_train = resnet_model.HParams(batch_size=batch_size_train,
                                 num_classes=NUM_CLASSES,
                                 # note these dummy params lr, mom and clip are just for adaptation of the model implementation, it is not relevant to the optimizer
-                                min_lrn_rate=0.0001, 
+                                min_lrn_rate=0.0001,
                                 lrn_rate=0.1,
                                 mom=0.9,
                                 clip_norm_base=10.0,
@@ -45,7 +46,7 @@ hps_train = resnet_model.HParams(batch_size=batch_size_train,
                                 use_bottleneck=False,
                                 weight_decay_rate=0.0002,
                                 relu_leakiness=0.1,
-                                optimizer='YF', 
+                                optimizer='YF',
                                 model_scope='train')
 # specify how much memory to use on each GPU
 gpu_mem_portion=0.5
@@ -74,6 +75,6 @@ for i in range(num_step):
   loss, _ = sess.run( [model_train.cost, model_train.train_op ] )
   loss_list.append(loss)
   if (i % display_interval == 0 or i == 50) and (i != 0):
-    print "plotting for iteration ", i
+    print("plotting for iteration ", i)
     plot_loss(loss_list, log_dir, i)
     np.savetxt(log_dir + "/loss_full.txt", np.array(loss_list) )

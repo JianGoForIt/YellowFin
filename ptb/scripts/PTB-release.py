@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os, sys
 import numpy as np
 import tensorflow as tf
@@ -32,20 +33,20 @@ def construct_model(config, eval_config, raw_data, opt_method):
     test_input = PTBInput(config=eval_config, data=test_data, name="TestInput")
     with tf.variable_scope("Model", reuse=True, initializer=initializer):
       mtest = PTBModel(is_training=False, config=eval_config, input_=test_input, opt_method=opt_method)
-  
+
   return m, mvalid, mtest
 
 
-def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, test_int=500):    
+def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, test_int=500):
   global state
   global iters
   global costs
-    
+
   if iter_id % model.input.epoch_size == 0:
     iters = 0
     costs = 0
     state = sess.run(m.initial_state)
-  
+
   fetches = {
     "cost": model.cost,
     "final_state": model.final_state,
@@ -55,7 +56,7 @@ def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, tes
   }
   if eval_op is not None:
     fetches["eval_op"] = eval_op
-  
+
   feed_dict = {}
   for i, (c, h) in enumerate(model.initial_state):
     feed_dict[c] = state[i].c
@@ -74,19 +75,19 @@ def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, tes
   val_perp = None
   test_perp = None
 
-  
+
   if iter_id % (model.input.epoch_size // 10) == 10:
     print("%.3f perplexity: %.3f speed: %.0f wps" %
-    (iter_id * 1.0 / model.input.epoch_size, np.exp(costs * model.input.num_steps / iters), 0))     
-    
+    (iter_id * 1.0 / model.input.epoch_size, np.exp(costs * model.input.num_steps / iters), 0))
+
   # if iter_id % test_int == 0 and iter_id != 0:
   #     print("test interval ", test_int)
   #     val_perp = run_epoch(sess, model_eval)
   #     print("Valid Perplexity: %.3f" % val_perp)
   #     test_perp = run_epoch(sess, model_test)
   #     print("Test Perplexity: %.3f" % test_perp)
-    
-  return cost, train_perp, val_perp, test_perp 
+
+  return cost, train_perp, val_perp, test_perp
 
 
 # load data and generate config
@@ -122,7 +123,7 @@ train_perp_list = []
 val_perp_list = []
 test_perp_list = []
 with sv.managed_session(config=tf.ConfigProto(inter_op_parallelism_threads=n_core,
-          intra_op_parallelism_threads=n_core, 
+          intra_op_parallelism_threads=n_core,
           gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5))) as sess:
   sess.run(init_op)
   state = sess.run(m.initial_state)
@@ -143,8 +144,8 @@ with sv.managed_session(config=tf.ConfigProto(inter_op_parallelism_threads=n_cor
 
     if iter_id % display_interval == 0 and iter_id != 0:
       def running_mean(x, N):
-        cumsum = np.cumsum(np.insert(x, 0, 0)) 
-        return (cumsum[N:] - cumsum[:-N]) / N 
+        cumsum = np.cumsum(np.insert(x, 0, 0))
+        return (cumsum[N:] - cumsum[:-N]) / N
       plt.figure()
       plt.semilogy(loss_list, '.', alpha=0.2, label="Loss")
       plt.semilogy(running_mean(loss_list,100), label="Average Loss")

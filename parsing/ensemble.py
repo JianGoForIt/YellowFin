@@ -1,3 +1,4 @@
+from __future__ import print_function
 import gzip, sys
 
 def generate_nbest(f):
@@ -32,11 +33,11 @@ if __name__ == '__main__':
   nbests = []
   for scored_nbest in generate_nbest(open_file(sys.argv[1])):
     nbests.append(scored_nbest)
-      
+
   for argv in sys.argv[2:]:
     for i, scored_nbest in enumerate(generate_nbest(open_file(argv))):
       for tree, score in scored_nbest.iteritems():
         nbests[i][tree] += score
 
   for nbest in nbests:
-    print sorted(nbest, key=nbest.get)[0]
+    print(sorted(nbest, key=nbest.get)[0])

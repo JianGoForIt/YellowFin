@@ -1,3 +1,4 @@
+from __future__ import print_function
 import tensorflow as tf
 from tensorflow.contrib import rnn
 from tensorflow.contrib import legacy_seq2seq
@@ -85,13 +86,13 @@ class Model():
                 args.grad_clip)
         with tf.name_scope('optimizer'):
             if opt_method == "Adam":
-                print "using Adam"
+                print("using Adam")
                 self.optimizer = optimizer = tf.train.AdamOptimizer(self.lr)
             elif opt_method == "YF":
-                print "using YF"
+                print("using YF")
                 self.optimizer = optimizer = YFOptimizer(learning_rate=args.learning_rate, momentum=0.0)
             elif opt_method == "SGD":
-		print "using SGD"
+		print("using SGD")
                 self.optimizer = optimizer = tf.train.MomentumOptimizer(self.lr, 0.9)
             else:
                 raise Exception("please use either adam or YF")

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from utils import open_file, unkify
 from traversal import ptb
 import sys
@@ -24,9 +25,9 @@ def integerize(filename, sym2id):
 
 if __name__ == '__main__':
   if len(sys.argv) != 3:
-    print 'usage: python integerize.py sym2id.gz silver.gz'
+    print('usage: python integerize.py sym2id.gz silver.gz')
     sys.exit(0)
 
   sym2id = read_vocab(sys.argv[1])
   for data in integerize(sys.argv[2], sym2id):
-    print ' '.join([str(x) for x in data])
+    print(' '.join([str(x) for x in data]))

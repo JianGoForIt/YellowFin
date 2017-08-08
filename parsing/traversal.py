@@ -1,3 +1,4 @@
+from __future__ import print_function
 from bllipparser import RerankingParser, Tree
 from utils import open_file, unkify
 
@@ -30,7 +31,7 @@ def ptb(line, words):
 
 def ptb_recurse(t, words, forms):
   forms.append('(' + t.label)
-  for child in t.subtrees(): 
+  for child in t.subtrees():
     if child.is_preterminal():
       token = child.tokens()[0]
       if token.lower() not in words:
@@ -64,13 +65,13 @@ def remove_duplicates(nbest):
 
 if __name__ == '__main__':
   if len(sys.argv) != 3 and len(sys.argv) != 4:
-    print 'usage: python traversal.py vocab.gz gold.gz [nbest.gz]'
+    print('usage: python traversal.py vocab.gz gold.gz [nbest.gz]')
     sys.exit(0)
 
   words = read_vocab(sys.argv[1])
   if len(sys.argv) == 3:
     for line in open_file(sys.argv[2]):
-      print ptb(line[:-1], words)
+      print(ptb(line[:-1], words))
   else:
     rrp = RerankingParser()
     parser = 'wsj/WSJ-PTB3/parser'
@@ -81,8 +82,8 @@ if __name__ == '__main__':
         tree['seq'] = ptb(tree['ptb'], words)
       nbest = remove_duplicates(nbest)
       gold = Tree(gold)
-      print len(nbest)
+      print(len(nbest))
       for t in nbest:
         scores = Tree(t['ptb']).evaluate(gold)
-        print scores['gold'], scores['test'], scores['matched']
-        print t['seq']
+        print(scores['gold'], scores['test'], scores['matched'])
+        print(t['seq'])
