@@ -10,11 +10,15 @@ For more usage details, please refer to the inline documentation of ```tuner_uti
 
 **YellowFin is under active development. Many members of the community have kindly submitted issues and pull requests. We are incorporating fixes and smoothing things out. As a result the repository code is in flux. Please make sure you use the latest version and submit any issues you might have!**
 
+We thank @[mfernezir](https://github.com/mfernezir) for the efforts on standardization of YellowFin in TensorFlow. If you want to use the previous stable version, please check out v1.0 branch.
+
 
 ## Updates
 **[2017.08.06] Switched to logrithmic smoothing to accelerate adaptation to curvature range trends.**
 
 **[2017.08.06] Added feature to correct estimation bias from sparse gradient.**
+
+**[2017.08.11] Added Multipe GPU training support with better standardized code structure.**
 
 ## Setup instructions for experiments
 Please clone the master branch and follow the instructions to run YellowFin on ResNet for CIFAR10, Bottleneck Resnet on CIRAR100 for image recognition, LSTM on Penn Treebank for language modeling, Char Rnn LSTM on TinyShakespeare and LSTM on Wall Street Journal dataset for constituency parsing. The CIFAR and PTB models we use are slightly adapted from official Tensorflow [ResNet](https://github.com/tensorflow/models/tree/master/resnet) and [LSTM](https://github.com/tensorflow/models/tree/master/tutorials/rnn/ptb). The Char Rnn LSTM and the Parsing LSTM are adapted from [Char Rnn repo](https://github.com/sherjilozair/char-rnn-tensorflow) and [Parsing LSTM repo](https://github.com/cdg720/emnlp2016) respectively. Thanks to the researchers for developing the models.
