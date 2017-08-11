@@ -1,3 +1,4 @@
+from __future__ import print_function
 import gzip
 import os
 import sys
@@ -34,8 +35,8 @@ def GetTrainingSession(model_train, n_core=16, gpu_mem_portion=0.99):
 
 def plot_loss(loss_list, log_dir, iter_id):
   def running_mean(x, N):
-    cumsum = np.cumsum(np.insert(x, 0, 0)) 
-    return (cumsum[N:] - cumsum[:-N]) / N 
+    cumsum = np.cumsum(np.insert(x, 0, 0))
+    return (cumsum[N:] - cumsum[:-N]) / N
   plt.figure()
   plt.semilogy(loss_list, '.', alpha=0.2, label="Loss")
   plt.semilogy(running_mean(loss_list,100), label="Average Loss")
@@ -47,5 +48,5 @@ def plot_loss(loss_list, log_dir, iter_id):
   ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05),
         ncol=3, fancybox=True, shadow=True)
   plt.savefig(log_dir + "/fig_loss_iter_" + str(iter_id) + ".pdf")
-  print "figure plotted"
+  print("figure plotted")
   plt.close()

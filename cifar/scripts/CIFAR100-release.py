@@ -1,3 +1,4 @@
+from __future__ import print_function
 import gzip
 import os
 import sys
@@ -73,6 +74,6 @@ for i in range(num_step):
   loss, _ = sess.run( [model_train.cost, model_train.train_op ] )
   loss_list.append(loss)
   if (i % display_interval == 0 or i == 50) and (i != 0):
-    print "plotting for iteration ", i
+    print("plotting for iteration ", i)
     plot_loss(loss_list, log_dir, i)
     np.savetxt(log_dir + "/loss_full.txt", np.array(loss_list) )

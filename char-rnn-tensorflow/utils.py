@@ -1,3 +1,4 @@
+from __future__ import print_function
 import codecs
 import os
 import collections
@@ -60,7 +61,7 @@ class TextLoader():
             offset = int(self.num_batches * TRAIN_PORTION) * self.batch_size * self.seq_length
             self.num_batches = int(floor(self.num_batches * TEST_PORTION) )
 
-            print "test offset", offset, self.num_batches, offset + self.num_batches * self.batch_size * self.seq_length
+            print("test offset", offset, self.num_batches, offset + self.num_batches * self.batch_size * self.seq_length)
 
             self.tensor = self.tensor[offset:(offset + self.num_batches * self.batch_size * self.seq_length) ]
 

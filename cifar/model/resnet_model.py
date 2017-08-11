@@ -20,6 +20,7 @@ https://arxiv.org/pdf/1603.05027v2.pdf
 https://arxiv.org/pdf/1512.03385v1.pdf
 https://arxiv.org/pdf/1605.07146v1.pdf
 """
+from __future__ import print_function
 from collections import namedtuple
 
 import numpy as np
@@ -156,7 +157,7 @@ class ResNet(object):
         zip(self.grads, self.trainable_variables),
         global_step=self.global_step, name='train_step')
     elif self.hps.optimizer == 'YF':
-      print "using YF"
+      print("using YF")
       self.optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
       apply_op = self.optimizer.apply_gradients(
         zip(self.grads, self.trainable_variables) )
@@ -180,14 +181,14 @@ class ResNet(object):
 #     self.trainable_variables =  tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.hps.model_scope)
 #     self.grads = tf.gradients(self.cost, self.trainable_variables)
 #     self.grads_clip, self.global_norm = tf.clip_by_global_norm(self.grads, self.clip_norm)
-    
+
 #     if "meta" not in self.hps.optimizer:
 #       if self.hps.optimizer == 'sgd':
 #         optimizer = tf.train.GradientDescentOptimizer(self.lrn_rate)
 #       elif self.hps.optimizer == 'mom':
 #         optimizer = tf.train.MomentumOptimizer(self.lrn_rate, self.mom)
 #       elif self.hps.optimizer == 'adam':
-#         print "adam optimizer"
+#         print("adam optimizer")
 #         optimizer = tf.train.AdamOptimizer(self.lrn_rate)
 
 #     apply_op = optimizer.apply_gradients(
