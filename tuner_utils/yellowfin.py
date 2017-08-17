@@ -252,29 +252,32 @@ class YFOptimizer(object):
     lr = (1.0 - tf.sqrt(self._mu))**2 / self._h_min
     return lr
 
+  def get_cubic_root(self):
+    # we substitute x, which is sqrt(mu), with x = y + 1.
+    # It gives y^3 + py = q
+    # where p = (D^2 h_min^2)/(2*C) and q = -p.
+    # We use the Vieta's substution to compute the root.
+    # There is only one real solution y (which is in [0, 1] ).
+    # http://mathworld.wolfram.com/VietasSubstitution.html
+    p = self._dist_to_opt_avg**2 * self._h_min**2 / 2 / self._grad_var
+    w3 = (-tf.sqrt(p**2 + 4.0 / 27.0 * p**3) - p) / 2.0
+    w = tf.sign(w3) * tf.pow(tf.abs(w3), 1.0/3.0)
+    y = w - p / 3.0 / w
+    x = y + 1
+    return x
+
   def get_mu_tensor(self):
-    const_fact = (self._dist_to_opt_avg**2 * self._h_min**2
-                  / 2 / self._grad_var)
-    coef = tf.Variable(
-      [-1.0, 3.0, 0.0, 1.0], dtype=tf.float32, name="cubic_solver_coef")
-    coef = tf.scatter_update(coef, tf.constant(2), -(3 + const_fact))
-    roots = tf.py_func(np.roots, [coef], Tout=tf.complex64, stateful=False)
-
-    # filter out the correct root
-    root_idx = tf.logical_and(
-      tf.logical_and(tf.greater(tf.real(roots), tf.constant(0.0)),
-                     tf.less(tf.real(roots), tf.constant(1.0))),
-      tf.less(tf.abs(tf.imag(roots)), 1e-5))
-    # in case there are two duplicated roots satisfying the above condition
-    root = tf.reshape(tf.gather(
-      tf.gather(roots, tf.where(root_idx)), tf.constant(0)),
-      shape=[])
-
+    # we substitute x, which is sqrt(mu), with x = y + 1.
+    # It gives y^3 + py = q
+    # where p = (D^2 h_min^2)/(2*C) and q = -p.
+    # We use the Vieta's substution to compute the root.
+    # There is only one real solution y (which is in [0, 1] ).
+    # http://mathworld.wolfram.com/VietasSubstitution.html
+    root = self.get_cubic_root()
+    root = tf.Print(root, [root], message="root")
     dr = self._h_max / self._h_min
-    with tf.control_dependencies([tf.assert_equal(tf.size(root),
-                                 tf.constant(1)), ]):
-      mu = tf.maximum(
-        tf.real(root)**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
+    mu = tf.maximum(
+      root**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
     return mu
 
   def update_hyper_param(self):
