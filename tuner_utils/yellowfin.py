@@ -84,6 +84,11 @@ class YFOptimizer(object):
       self._clip_thresh_var = tf.Variable(
         clip_thresh, dtype=tf.float32, name="YF_clip_thresh",
         trainable=False)
+      # used to monitor `self._grads_norm` (global gradient norm)
+      # useful to more easily determine appropriate `clip_thresh` value
+      self.grad_global_norm_monitor = tf.Variable(
+        0.0, dtype=tf.float32, name="grad_global_norm_monitor",
+        trainable=False)
     else:
       self._clip_thresh_var = None
 
@@ -262,11 +267,11 @@ class YFOptimizer(object):
     # There is only one real solution y (which is in [0, 1] ).
     # http://mathworld.wolfram.com/VietasSubstitution.html
     assert_array = \
-      [tf.Assert(tf.logical_not(tf.is_nan(self._dist_to_opt_avg) ), [self._dist_to_opt_avg,]), 
-      tf.Assert(tf.logical_not(tf.is_nan(self._h_min) ), [self._h_min,]), 
+      [tf.Assert(tf.logical_not(tf.is_nan(self._dist_to_opt_avg) ), [self._dist_to_opt_avg,]),
+      tf.Assert(tf.logical_not(tf.is_nan(self._h_min) ), [self._h_min,]),
       tf.Assert(tf.logical_not(tf.is_nan(self._grad_var) ), [self._grad_var,]),
-      tf.Assert(tf.logical_not(tf.is_inf(self._dist_to_opt_avg) ), [self._dist_to_opt_avg,]), 
-      tf.Assert(tf.logical_not(tf.is_inf(self._h_min) ), [self._h_min,]), 
+      tf.Assert(tf.logical_not(tf.is_inf(self._dist_to_opt_avg) ), [self._dist_to_opt_avg,]),
+      tf.Assert(tf.logical_not(tf.is_inf(self._h_min) ), [self._h_min,]),
       tf.Assert(tf.logical_not(tf.is_inf(self._grad_var) ), [self._grad_var,])]
     with tf.control_dependencies(assert_array):
       p = self._dist_to_opt_avg**2 * self._h_min**2 / 2 / self._grad_var
@@ -314,9 +319,12 @@ class YFOptimizer(object):
           self._grads, self._clip_thresh_var)
         apply_grad_op = self._optimizer.apply_gradients(
           zip(self._grads, self._tvars), global_step, name)
+        grad_monitor_op = tf.assign(
+          self.grad_global_norm_monitor, self._grads_norm)
       else:
         apply_grad_op = self._optimizer.apply_gradients(
           zip(self._grads, self._tvars), global_step, name)
+        grad_monitor_op = tf.no_op()
 
     with tf.variable_scope("after_apply"):
       # the dependencies ideally only need to be after clip is done,
@@ -324,7 +332,7 @@ class YFOptimizer(object):
       # does not support indexed slice for sparse gradients.
       # The alternative dependencies here might be slightly slower due
       # to less parallelization.
-      with tf.control_dependencies([apply_grad_op, ]):
+      with tf.control_dependencies([apply_grad_op, grad_monitor_op]):
         after_apply_op = self.after_apply()
 
     with tf.variable_scope("update_hyper"):
