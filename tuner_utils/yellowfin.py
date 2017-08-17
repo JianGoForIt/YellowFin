@@ -274,7 +274,6 @@ class YFOptimizer(object):
     # There is only one real solution y (which is in [0, 1] ).
     # http://mathworld.wolfram.com/VietasSubstitution.html
     root = self.get_cubic_root()
-    root = tf.Print(root, [root], message="root")
     dr = self._h_max / self._h_min
     mu = tf.maximum(
       root**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
