@@ -253,7 +253,9 @@ class YFOptimizer(object):
     return lr
 
   def get_cubic_root(self):
-    # we substitute x, which is sqrt(mu), with x = y + 1.
+    # We have the equation x^2 D^2 + (1-x)^4 * C / h_min^2
+    # where x = sqrt(mu).
+    # We substitute x, which is sqrt(mu), with x = y + 1.
     # It gives y^3 + py = q
     # where p = (D^2 h_min^2)/(2*C) and q = -p.
     # We use the Vieta's substution to compute the root.
@@ -267,12 +269,6 @@ class YFOptimizer(object):
     return x
 
   def get_mu_tensor(self):
-    # we substitute x, which is sqrt(mu), with x = y + 1.
-    # It gives y^3 + py = q
-    # where p = (D^2 h_min^2)/(2*C) and q = -p.
-    # We use the Vieta's substution to compute the root.
-    # There is only one real solution y (which is in [0, 1] ).
-    # http://mathworld.wolfram.com/VietasSubstitution.html
     root = self.get_cubic_root()
     dr = self._h_max / self._h_min
     mu = tf.maximum(
