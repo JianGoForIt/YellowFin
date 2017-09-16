@@ -163,7 +163,7 @@ class YFOptimizer(object):
         self._moving_averager.average(val) for val in tensor_to_avg]
       self._grad_avg_squared = [tf.square(val) for val in self._grad_avg]
     self._grad_var = tf.maximum(
-      tf.constant(1e-6, dtype=self._grad_norm_squared_avg.dtype),
+      tf.constant(eps, dtype=self._grad_norm_squared_avg.dtype),
       self._grad_norm_squared_avg
       - tf.add_n([tf.reduce_sum(val) for val in self._grad_avg_squared]))
     if self._sparsity_debias:
@@ -182,7 +182,7 @@ class YFOptimizer(object):
       # single iteration distance estimation
       # note that self._grad_norm_avg is per variable
       self._dist_to_opt = (self._grad_norm_avg
-                 / self._grad_norm_squared_avg)
+                 / (self._grad_norm_squared_avg + eps) )
     # running average of distance
     avg_op = self._moving_averager.apply([self._dist_to_opt])
     dist_to_opt_ops.append(avg_op)
@@ -190,7 +190,7 @@ class YFOptimizer(object):
       self._dist_to_opt_avg = tf.identity(
         self._moving_averager.average(self._dist_to_opt))
       if self._sparsity_debias:
-        self._dist_to_opt_avg /= tf.sqrt(self._sparsity_avg)
+        self._dist_to_opt_avg /= (tf.sqrt(self._sparsity_avg) + eps)
     return dist_to_opt_ops
 
   def grad_sparsity(self):
@@ -271,7 +271,8 @@ class YFOptimizer(object):
     #   tf.Assert(tf.logical_not(tf.is_inf(self._h_min) ), [self._h_min,]), 
     #   tf.Assert(tf.logical_not(tf.is_inf(self._grad_var) ), [self._grad_var,])]
     # with tf.control_dependencies(assert_array):
-    p = self._dist_to_opt_avg**2 * (self._h_min + eps)**2 / 2 / (self._grad_var + eps)
+    # eps in the numerator to prevent momentum being exactly one in case of 0 gradient
+    p = (self._dist_to_opt_avg + eps)**2 * (self._h_min + eps)**2 / 2 / (self._grad_var + eps)
     w3 = (-tf.sqrt(p**2 + 4.0 / 27.0 * p**3) - p) / 2.0
     w = tf.sign(w3) * tf.pow(tf.abs(w3), 1.0/3.0)
     y = w - p / 3.0 / (w + eps)
