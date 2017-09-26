@@ -91,9 +91,15 @@ class Model():
             elif opt_method == "YF":
                 print("using YF")
                 self.optimizer = optimizer = YFOptimizer(learning_rate=args.learning_rate, momentum=0.0)
-            elif opt_method == "SGD":
-		print("using SGD")
+            elif opt_method == "momSGD":
+		print("using momSGD")
                 self.optimizer = optimizer = tf.train.MomentumOptimizer(self.lr, 0.9)
+            elif opt_method == "SGD":
+                print("using SGD")
+                self.optimizer = optimizer = tf.train.GradientDescentOptimizer(self.lr)
+            elif opt_method == "Adagrad":
+                print("using adagrad")
+                self.optimizer = optimizer = tf.train.AdagradOptimizer(self.lr)
             else:
                 raise Exception("please use either adam or YF")
 

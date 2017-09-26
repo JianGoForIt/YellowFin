@@ -184,8 +184,12 @@ class PTBModel(object):
 
     self.grads = tf.gradients(cost, tvars)
 
+    # DEBUG
+    tf.Print(self.grads[0], [self._lr, self._mu], message="check lr mu")
+
     grads_clip, self.grad_norm = tf.clip_by_global_norm(self.grads, self._grad_norm_thresh)
     if opt_method == 'sgd':
+      print("using sgd")
       optimizer = tf.train.GradientDescentOptimizer(self._lr)
       self._train_op = optimizer.apply_gradients(
           zip(grads_clip, tvars),
@@ -197,15 +201,21 @@ class PTBModel(object):
       self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars), 
         global_step=tf.contrib.framework.get_or_create_global_step())
     elif opt_method == 'adam':
+      print("using adam")
       optimizer = tf.train.AdamOptimizer(self._lr)
       self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars), 
         global_step=tf.contrib.framework.get_or_create_global_step())
     elif opt_method == 'YF':
+      print("using YF")
       optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
       self._train_op = optimizer.apply_gradients(zip(self.grads, tvars) )
+    elif opt_method == "adagrad":
+      print("using adagrad")
+      optimizer = AdagradOptimizer(self._lr)
+      self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars),
+        global_step=tf.contrib.framework.get_or_create_global_step())
     else:
       raise Exception("optimizer not supported")
-
 
     self._new_lr = tf.placeholder(
         tf.float32, shape=[], name="new_learning_rate")
