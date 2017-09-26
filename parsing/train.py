@@ -29,9 +29,12 @@ flags.DEFINE_integer('batch_size', None, 'batch_size')
 flags.DEFINE_string('model_path', None, 'model_path')
 flags.DEFINE_string('opt_method', None, 'opt_method')
 flags.DEFINE_string('log_dir', None, 'log_dir')
+flags.DEFINE_integer('seed', 1, 'seed')
 
 FLAGS = flags.FLAGS
 
+np.random.seed(FLAGS.seed)
+tf.set_random_seed(FLAGS.seed)
 
 def train():
   print('data_path: %s' % FLAGS.data_path)
@@ -68,6 +71,7 @@ def train():
   print('vocab_size: %d' % config.vocab_size)
   print('opt_method: %s' % config.opt_method)
   print('log_dir: %s' % config.log_dir)
+  print('seed: %d' % FLAGS.seed)
   sys.stdout.flush()
   
   eval_config = MediumConfig()

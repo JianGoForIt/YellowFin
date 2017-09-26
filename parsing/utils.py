@@ -119,11 +119,17 @@ class PTBModel(object):
     elif config.opt_method == "YF":
       print("using YF")
       self.optimizer = optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
-    else:
-      #print("uisng SGD")
-      #optimizer = tf.train.GradientDescentOptimizer(self.lr)
+    elif config.opt_method == "momSGD":
       print("uisng mom SGD")
       optimizer = tf.train.MomentumOptimizer(self.lr, 0.9)
+    elif config.opt_method == "SGD":
+      print("uisng SGD")
+      optimizer = tf.train.GradientDescentOptimizer(self.lr)
+    elif config.opt_method == "Adagrad":
+      print("using adagrad")
+      optimizer = tf.train.AdagradOptimizer(self.lr)
+    else:
+      print("Optimizer is not supported")
 
     self._train_op = optimizer.apply_gradients(zip(grads, tvars))
 
