@@ -48,7 +48,7 @@ def construct_model(config, eval_config, raw_data, opt_method):
   return m, mvalid, mtest
 
 
-def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, test_int=500):
+def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, test_int=1000):
   global state
   global iters
   global costs
@@ -91,10 +91,10 @@ def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, tes
     print("%.3f perplexity: %.3f speed: %.0f wps" %
     (iter_id * 1.0 / model.input.epoch_size, np.exp(costs * model.input.num_steps / iters), 0))
 
-   if iter_id % test_int == 0 and iter_id != 0:
-       print("test interval ", test_int)
-       val_perp = run_epoch(sess, model_eval)
-       print("Valid Perplexity: %.3f" % val_perp)
+  if iter_id % test_int == 0 and iter_id != 0:
+      print("test interval ", test_int)
+      val_perp = run_epoch(sess, model_eval)
+      print("Valid Perplexity: %.3f" % val_perp)
   #     test_perp = run_epoch(sess, model_test)
   #     print("Test Perplexity: %.3f" % test_perp)
 
@@ -111,6 +111,12 @@ raw_data = reader.ptb_raw_data(data_path)
 tf.reset_default_graph()
 opt_method = 'YF'
 m, m_val, m_test = construct_model(train_config, eval_config, raw_data, args.opt_method)
+
+lr_as = tf.assign(m._lr, args.lr)
+mu_as = tf.assign(m._mu, 0.9)
+# set clipping thresh to super large so that there is no clipping
+thresh_as = tf.assign(m._grad_norm_thresh, 1e10 )
+
 init_op = tf.global_variables_initializer()
 os.system("rm -r ./tmp")
 sv = tf.train.Supervisor(logdir='./tmp')
@@ -130,9 +136,9 @@ log_dir = args.log_dir
 if not os.path.isdir(log_dir):
   os.mkdir(log_dir)
 
-np.random.set_seed(args.seed)
+np.random.seed(args.seed)
 tf.set_random_seed(args.seed)
-print("using random seed")
+print("using random seed", args.seed)
 
 loss_list = []
 train_perp_list = []
@@ -147,8 +153,9 @@ with sv.managed_session(config=tf.ConfigProto(inter_op_parallelism_threads=n_cor
   costs = 0
   iters = 0
   if args.opt_method != "YF":
-     sess.run( [tf.assign(m._lr, args.lr), tf.assign(m._mu, 0.9), 
-                tf.assign(m._grad_norm_thresh, 1e10 ) ] )
+     sess.run([lr_as, mu_as, thresh_as])
+     print("test lr outside ", sess.run([m._lr, m._mu, m._grad_norm_thresh]))
+
   for iter_id in range(num_step):
     loss, train_perp, val_perp, test_perp = \
       train_single_step(sess, m, m_val, m_test, m.train_op, iter_id)

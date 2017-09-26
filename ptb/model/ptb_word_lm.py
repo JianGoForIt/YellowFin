@@ -164,6 +164,7 @@ class PTBModel(object):
     softmax_w = tf.get_variable(
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
+    
     logits = tf.matmul(output, softmax_w) + softmax_b
     loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(
         [logits],
@@ -183,9 +184,6 @@ class PTBModel(object):
     self.tvars = tvars
 
     self.grads = tf.gradients(cost, tvars)
-
-    # DEBUG
-    tf.Print(self.grads[0], [self._lr, self._mu], message="check lr mu")
 
     grads_clip, self.grad_norm = tf.clip_by_global_norm(self.grads, self._grad_norm_thresh)
     if opt_method == 'sgd':
@@ -211,7 +209,7 @@ class PTBModel(object):
       self._train_op = optimizer.apply_gradients(zip(self.grads, tvars) )
     elif opt_method == "adagrad":
       print("using adagrad")
-      optimizer = AdagradOptimizer(self._lr)
+      optimizer = tf.train.AdagradOptimizer(self._lr)
       self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars),
         global_step=tf.contrib.framework.get_or_create_global_step())
     else:
