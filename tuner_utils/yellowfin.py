@@ -13,6 +13,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
+# eps for numerical stability
+eps = 1e-15
 
 class YFOptimizer(object):
   """
@@ -124,7 +126,7 @@ class YFOptimizer(object):
     # we use log smoothing for curvature range
     self._curv_win = tf.scatter_update(
       self._curv_win, self._global_step % self._curv_win_width,
-      tf.log(self._grad_norm_squared))
+      tf.log(self._grad_norm_squared + eps))
     # note here the iterations start from iteration 0
     valid_window = tf.slice(
       self._curv_win, tf.constant([0, ]), tf.expand_dims(
@@ -166,7 +168,7 @@ class YFOptimizer(object):
         self._moving_averager.average(val) for val in tensor_to_avg]
       self._grad_avg_squared = [tf.square(val) for val in self._grad_avg]
     self._grad_var = tf.maximum(
-      tf.constant(1e-6, dtype=self._grad_norm_squared_avg.dtype),
+      tf.constant(eps, dtype=self._grad_norm_squared_avg.dtype),
       self._grad_norm_squared_avg
       - tf.add_n([tf.reduce_sum(val) for val in self._grad_avg_squared]))
     if self._sparsity_debias:
@@ -185,7 +187,7 @@ class YFOptimizer(object):
       # single iteration distance estimation
       # note that self._grad_norm_avg is per variable
       self._dist_to_opt = (self._grad_norm_avg
-                 / self._grad_norm_squared_avg)
+                 / (self._grad_norm_squared_avg + eps) )
     # running average of distance
     avg_op = self._moving_averager.apply([self._dist_to_opt])
     dist_to_opt_ops.append(avg_op)
@@ -193,7 +195,7 @@ class YFOptimizer(object):
       self._dist_to_opt_avg = tf.identity(
         self._moving_averager.average(self._dist_to_opt))
       if self._sparsity_debias:
-        self._dist_to_opt_avg /= tf.sqrt(self._sparsity_avg)
+        self._dist_to_opt_avg /= (tf.sqrt(self._sparsity_avg) + eps)
     return dist_to_opt_ops
 
   def grad_sparsity(self):
@@ -254,7 +256,7 @@ class YFOptimizer(object):
     return tf.group(*after_apply_ops)
 
   def get_lr_tensor(self):
-    lr = (1.0 - tf.sqrt(self._mu))**2 / self._h_min
+    lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + eps)
     return lr
 
   def get_cubic_root(self):
@@ -266,19 +268,20 @@ class YFOptimizer(object):
     # We use the Vieta's substution to compute the root.
     # There is only one real solution y (which is in [0, 1] ).
     # http://mathworld.wolfram.com/VietasSubstitution.html
-    assert_array = \
-      [tf.Assert(tf.logical_not(tf.is_nan(self._dist_to_opt_avg) ), [self._dist_to_opt_avg,]),
-      tf.Assert(tf.logical_not(tf.is_nan(self._h_min) ), [self._h_min,]),
-      tf.Assert(tf.logical_not(tf.is_nan(self._grad_var) ), [self._grad_var,]),
-      tf.Assert(tf.logical_not(tf.is_inf(self._dist_to_opt_avg) ), [self._dist_to_opt_avg,]),
-      tf.Assert(tf.logical_not(tf.is_inf(self._h_min) ), [self._h_min,]),
-      tf.Assert(tf.logical_not(tf.is_inf(self._grad_var) ), [self._grad_var,])]
-    with tf.control_dependencies(assert_array):
-      p = self._dist_to_opt_avg**2 * self._h_min**2 / 2 / self._grad_var
-      w3 = (-tf.sqrt(p**2 + 4.0 / 27.0 * p**3) - p) / 2.0
-      w = tf.sign(w3) * tf.pow(tf.abs(w3), 1.0/3.0)
-      y = w - p / 3.0 / w
-      x = y + 1
+    # assert_array = \
+    #   [tf.Assert(tf.logical_not(tf.is_nan(self._dist_to_opt_avg) ), [self._dist_to_opt_avg,]),
+    #   tf.Assert(tf.logical_not(tf.is_nan(self._h_min) ), [self._h_min,]),
+    #   tf.Assert(tf.logical_not(tf.is_nan(self._grad_var) ), [self._grad_var,]),
+    #   tf.Assert(tf.logical_not(tf.is_inf(self._dist_to_opt_avg) ), [self._dist_to_opt_avg,]),
+    #   tf.Assert(tf.logical_not(tf.is_inf(self._h_min) ), [self._h_min,]),
+    #   tf.Assert(tf.logical_not(tf.is_inf(self._grad_var) ), [self._grad_var,])]
+    # with tf.control_dependencies(assert_array):
+    # eps in the numerator to prevent momentum being exactly one in case of 0 gradient
+    p = (self._dist_to_opt_avg + eps)**2 * (self._h_min + eps)**2 / 2 / (self._grad_var + eps)
+    w3 = (-tf.sqrt(p**2 + 4.0 / 27.0 * p**3) - p) / 2.0
+    w = tf.sign(w3) * tf.pow(tf.abs(w3), 1.0/3.0)
+    y = w - p / 3.0 / (w + eps)
+    x = y + 1
     return x
 
   def get_mu_tensor(self):
