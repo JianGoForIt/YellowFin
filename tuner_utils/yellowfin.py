@@ -14,7 +14,7 @@ import tensorflow as tf
 from tensorflow.python.framework import ops
 
 # eps for numerical stability
-eps = 1e-15
+eps = 1e-6
 
 class YFOptimizer(object):
   """
@@ -30,7 +30,7 @@ class YFOptimizer(object):
   def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None,
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
                sparsity_debias=True, use_locking=False, name="YellowFin",
-               use_nesterov=False):
+               use_nesterov=False, lr_grad_thresh=1.0):
     """
     Construct a new YellowFin optimizer.
 
@@ -112,6 +112,9 @@ class YFOptimizer(object):
     # for curvature range
     self._curv_win_width = curv_win_width
     self._curv_win = None
+
+    # for threshold preventing exploding lr or gradient
+    self._lr_grad_thresh = lr_grad_thresh
 
   def curvature_range(self):
     # set up the curvature window
@@ -281,7 +284,7 @@ class YFOptimizer(object):
 
   def get_mu_tensor(self):
     root = self.get_cubic_root()
-    dr = self._h_max / self._h_min
+    dr = (self._h_max + eps) / (self._h_min + eps)
     mu = tf.maximum(
       root**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
     return mu
@@ -299,8 +302,9 @@ class YFOptimizer(object):
     with tf.control_dependencies([self._mu, self._lr]):
       self._mu = self._beta * self._mu_var + (1 - self._beta) * self._mu
       self._lr = self._beta * self._lr_var + (1 - self._beta) * self._lr
-      assign_hyper_ops.append(tf.assign(self._mu_var, self._mu))
-      assign_hyper_ops.append(tf.assign(self._lr_var, self._lr))
+      with tf.control_dependencies([self._mu, self._lr] ):
+        assign_hyper_ops.append(tf.assign(self._mu_var, self._mu))
+        assign_hyper_ops.append(tf.assign(self._lr_var, tf.min(self._lr, self._lr_grad_thresh / (self._grad_norm + eps) ) ) )
     assign_hyper_op = tf.group(*assign_hyper_ops)
     return assign_hyper_op
 
