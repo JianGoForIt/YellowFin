@@ -304,7 +304,7 @@ class YFOptimizer(object):
       self._lr = self._beta * self._lr_var + (1 - self._beta) * self._lr
       with tf.control_dependencies([self._mu, self._lr] ):
         assign_hyper_ops.append(tf.assign(self._mu_var, self._mu))
-        assign_hyper_ops.append(tf.assign(self._lr_var, tf.min(self._lr, self._lr_grad_thresh / (self._grad_norm + eps) ) ) )
+        assign_hyper_ops.append(tf.assign(self._lr_var, tf.minimum(self._lr, self._lr_grad_thresh / (self._grad_norm + eps) ) ) )
     assign_hyper_op = tf.group(*assign_hyper_ops)
     return assign_hyper_op
 
