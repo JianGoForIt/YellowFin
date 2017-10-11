@@ -30,7 +30,8 @@ class YFOptimizer(object):
   def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None,
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
                sparsity_debias=True, use_locking=False, name="YellowFin",
-               use_nesterov=False, lr_grad_thresh=1.0, use_unsmoothed_lr_mu=False):
+               use_nesterov=False, lr_grad_thresh=1.0, use_unsmoothed_lr_mu=True,
+               h_max_log_smooth=False, h_min_log_smooth=True):
     """
     Construct a new YellowFin optimizer.
 
@@ -119,32 +120,53 @@ class YFOptimizer(object):
     # option for using smoothed or unsmoothed lr and mu
     self._use_unsmoothed_lr_mu = use_unsmoothed_lr_mu
 
+    # options for curvature envelop smoothing
+    self._h_max_log_smooth = h_max_log_smooth
+    self._h_min_log_smooth = h_min_log_smooth
+
   def curvature_range(self):
     # set up the curvature window
     self._curv_win = tf.Variable(
       np.zeros([self._curv_win_width, ]), dtype=tf.float32,
       name="curv_win", trainable=False)
-    # we use log smoothing for curvature range
+    # we can use log smoothing for curvature range to follow trend faster
+    # self._curv_win = tf.scatter_update(
+    #   self._curv_win, self._global_step % self._curv_win_width,
+    #   tf.log(self._grad_norm_squared + eps))
     self._curv_win = tf.scatter_update(
       self._curv_win, self._global_step % self._curv_win_width,
-      tf.log(self._grad_norm_squared + eps))
+      self._grad_norm_squared + eps)
     # note here the iterations start from iteration 0
     valid_window = tf.slice(
       self._curv_win, tf.constant([0, ]), tf.expand_dims(
         tf.minimum(tf.constant(self._curv_win_width),
                    self._global_step + 1), dim=0))
-    self._h_min_t = tf.reduce_min(valid_window)
-    self._h_max_t = tf.reduce_max(valid_window)
+    if self._h_min_log_smooth:
+      self._h_min_t = tf.log(tf.reduce_min(valid_window) + eps)
+    else:
+      self._h_min_t = tf.reduce_min(valid_window)
+    if self._h_max_log_smooth:
+      self._h_max_t = tf.log(tf.reduce_max(valid_window) + eps)
+    else:
+      self._h_max_t = tf.reduce_max(valid_window)
 
     curv_range_ops = []
     with tf.control_dependencies([self._h_min_t, self._h_max_t]):
       avg_op = self._moving_averager.apply(
         [self._h_min_t, self._h_max_t])
       with tf.control_dependencies([avg_op]):
-        self._h_min = tf.exp(
-          tf.identity(self._moving_averager.average(self._h_min_t)))
-        self._h_max = tf.exp(
-          tf.identity(self._moving_averager.average(self._h_max_t)))
+        if self._h_min_log_smooth:
+          self._h_min = tf.exp(
+            tf.identity(self._moving_averager.average(self._h_min_t)))
+        else:
+          self._h_min = \
+            tf.identity(self._moving_averager.average(self._h_min_t))
+        if self._h_max_log_smooth:
+          self._h_max = tf.exp(
+            tf.identity(self._moving_averager.average(self._h_max_t)))
+        else:
+          self._h_max = \
+            tf.identity(self._moving_averager.average(self._h_max_t))
       if self._sparsity_debias:
         self._h_min = self._h_min * self._sparsity_avg
         self._h_max = self._h_max * self._sparsity_avg
