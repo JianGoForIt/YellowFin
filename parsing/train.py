@@ -30,6 +30,7 @@ flags.DEFINE_string('model_path', None, 'model_path')
 flags.DEFINE_string('opt_method', None, 'opt_method')
 flags.DEFINE_string('log_dir', None, 'log_dir')
 flags.DEFINE_integer('seed', 1, 'seed')
+flags.DEFINE_integer('h_max_log_smooth', 0, 'use log smoothing for h_max')
 
 FLAGS = flags.FLAGS
 
@@ -55,7 +56,8 @@ def train():
   if FLAGS.lr_decay: config.lr_decay = FLAGS.lr_decay
   if FLAGS.batch_size: config.batch_size = FLAGS.batch_size
   if FLAGS.opt_method: config.opt_method = FLAGS.opt_method
-  if FLAGS.opt_method: config.log_dir = FLAGS.log_dir
+  if FLAGS.log_dir: config.log_dir = FLAGS.log_dir
+  config.h_max_log_smooth = FLAGS.h_max_log_smooth
   config.vocab_size = len(vocab)
   print('init_scale: %.2f' % config.init_scale)
   print('learning_rate: %.2f' % config.learning_rate)
@@ -88,6 +90,7 @@ def train():
   eval_config.batch_size = 200
   # eval_config.batch_size = config.batch_size
   eval_config.vocab_size = len(vocab)
+  eval_config.h_max_log_smooth = config.h_max_log_smooth
 
   prev = 0
   with tf.Graph().as_default(), tf.Session() as session:

@@ -117,8 +117,8 @@ class PTBModel(object):
       print("using Adam")
       optimizer = tf.train.AdamOptimizer(self.lr)
     elif config.opt_method == "YF":
-      print("using YF")
-      self.optimizer = optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
+      print("using YF, h max log smooth ", config.h_max_log_smooth)
+      self.optimizer = optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0, h_max_log_smooth=config.h_max_log_smooth)
     elif config.opt_method == "momSGD":
       print("uisng mom SGD")
       optimizer = tf.train.MomentumOptimizer(self.lr, 0.9)
