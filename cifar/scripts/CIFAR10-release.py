@@ -29,6 +29,7 @@ parser.add_argument('--lr', type=float, default=1.0,
 parser.add_argument('--seed', type=int, default=1, help='random seed')
 parser.add_argument('--opt_method', type=str, default="YF", help='optimizer')
 parser.add_argument('--log_dir', type=str, default="results/", help="log folder")
+parser.add_argument('--h_max_log_smooth', action='store_true')
 
 args = parser.parse_args()
 
@@ -61,7 +62,8 @@ hps_train = resnet_model.HParams(batch_size=batch_size_train,
                                 weight_decay_rate=0.0002,
                                 relu_leakiness=0.1,
                                 optimizer=args.opt_method,
-                                model_scope='train')
+                                model_scope='train',
+                                h_max_log_smooth=args.h_max_log_smooth)
 hps_eval = resnet_model.HParams(batch_size=batch_size_test,
                                num_classes=NUM_CLASSES,
                                min_lrn_rate=0.0001,
@@ -73,7 +75,8 @@ hps_eval = resnet_model.HParams(batch_size=batch_size_test,
                                weight_decay_rate=0.0002,
                                relu_leakiness=0.1,
                                optimizer=args.opt_method,
-                               model_scope='train')
+                               model_scope='train',
+                               h_max_log_smooth=args.h_max_log_smooth)
 
 # specify how much memory to use on each GPU
 gpu_mem_portion=0.45

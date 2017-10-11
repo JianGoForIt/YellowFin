@@ -42,7 +42,7 @@ HParams = namedtuple('HParams',
                      'batch_size, num_classes, '
                      'min_lrn_rate, lrn_rate, mom, clip_norm_base,'
                      'num_residual_units, use_bottleneck, weight_decay_rate, '
-                     'relu_leakiness, optimizer, model_scope')
+                     'relu_leakiness, optimizer, model_scope, h_max_log_smooth')
 
 
 class ResNet(object):
@@ -160,8 +160,8 @@ class ResNet(object):
         zip(self.grads, self.trainable_variables),
         global_step=self.global_step, name='train_step')
     elif self.hps.optimizer == 'YF':
-      print("using YF", 1.0)
-      self.optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
+      print("using YF h_max log smooth", self.hps.h_max_log_smooth)
+      self.optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0, h_max_log_smooth=self.hps.h_max_log_smooth)
       apply_op = self.optimizer.apply_gradients(
         zip(self.grads, self.trainable_variables) )
     elif self.hps.optimizer == "adam":
