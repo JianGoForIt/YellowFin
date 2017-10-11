@@ -227,11 +227,6 @@ class YFOptimizer(object):
     for v, g in zip(self._tvars, self._grads):
       if g is None:
         continue
-
-      # DEBUG
-      g = tf.Print(g, [self._global_step, g], "statistic g")
-
-
       with ops.colocate_with(v):
         self._grad_squared.append(tf.square(g))
     self._grad_norm_squared = [
@@ -374,13 +369,6 @@ class YFOptimizer(object):
 
     with tf.variable_scope("apply_updates"):
       with tf.control_dependencies([update_hyper_op]):
-
-        # DEBUG
-        print("check results", type(self._grads[0]) )
-        self._grads = list(self._grads)
-        self._grads[0] = tf.Print(self._grads[0], [self._global_step, self._grads[0] ], "apply g")
-
-
         apply_grad_op = self._optimizer.apply_gradients(
           zip(self._grads, self._tvars), global_step, name)
 
