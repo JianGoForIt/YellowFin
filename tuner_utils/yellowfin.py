@@ -175,12 +175,6 @@ class YFOptimizer(object):
       if self._sparsity_debias:
         self._h_min = self._h_min * self._sparsity_avg
         self._h_max = self._h_max * self._sparsity_avg
-
-      # DEBUG
-      self._h_min = tf.Print(self._h_min, [self._global_step, self._h_min], message="h_min")
-      self._h_max = tf.Print(self._h_max, [self._global_step, self._h_max], message="h_max")
-
-
     curv_range_ops.append(avg_op)
     return curv_range_ops
 
