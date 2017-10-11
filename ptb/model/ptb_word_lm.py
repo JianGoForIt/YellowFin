@@ -205,7 +205,9 @@ class PTBModel(object):
         global_step=tf.contrib.framework.get_or_create_global_step())
     elif opt_method == 'YF':
       print("using YF")
-      optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
+      #optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
+      print("h max log smooth", config.h_max_log_smooth)
+      optimizer = YFOptimizer(h_max_log_smooth=config.h_max_log_smooth)
       self._train_op = optimizer.apply_gradients(zip(self.grads, tvars) )
     elif opt_method == "adagrad":
       print("using adagrad")

@@ -19,9 +19,10 @@ parser.add_argument('--lr', type=float, default=1.0,
 parser.add_argument('--seed', type=int, default=1, help='random seed')
 parser.add_argument('--opt_method', type=str, default="YF", help='optimizer')
 parser.add_argument('--log_dir', type=str, default="results/", help="log folder")
+parser.add_argument('--h_max_log_smooth', action='store_true')
 
 args = parser.parse_args()
-
+print("use log smooth h_max ", args.h_max_log_smooth)
 
 def construct_model(config, eval_config, raw_data, opt_method):
   train_data, valid_data, test_data, _ = raw_data
@@ -110,6 +111,7 @@ raw_data = reader.ptb_raw_data(data_path)
 # construct models
 tf.reset_default_graph()
 opt_method = 'YF'
+train_config.h_max_log_smooth = args.h_max_log_smooth
 m, m_val, m_test = construct_model(train_config, eval_config, raw_data, args.opt_method)
 
 lr_as = tf.assign(m._lr, args.lr)

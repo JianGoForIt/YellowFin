@@ -105,9 +105,7 @@ class YFOptimizer(object):
     # for global step counting
     self._global_step = tf.Variable(0, trainable=False)
 
-    # start tuning after we have collect data from curv_win_width iterations.
-    # Before that we use very small learning rate and 0.0 momentum
-    self._do_tune = tf.greater(self._global_step, tf.constant(curv_win_width - 1) )
+    self._do_tune = tf.greater(self._global_step, tf.constant(curv_win_width) )
 
     self._zero_debias = zero_debias
     self._sparsity_debias = sparsity_debias
