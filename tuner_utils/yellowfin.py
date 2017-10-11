@@ -30,7 +30,7 @@ class YFOptimizer(object):
   def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None,
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
                sparsity_debias=True, use_locking=False, name="YellowFin",
-               use_nesterov=False, lr_grad_thresh=1.0):
+               use_nesterov=False, lr_grad_thresh=1.0, use_unsmoothed_lr_mu=True):
     """
     Construct a new YellowFin optimizer.
 
@@ -116,6 +116,9 @@ class YFOptimizer(object):
     # for threshold preventing exploding lr or gradient
     self._lr_grad_thresh = lr_grad_thresh
 
+    # option for using smoothed or unsmoothed lr and mu
+    self._use_unsmoothed_lr_mu = use_unsmoothed_lr_mu
+
   def curvature_range(self):
     # set up the curvature window
     self._curv_win = tf.Variable(
@@ -168,7 +171,7 @@ class YFOptimizer(object):
     self._grad_var = tf.maximum(
       tf.constant(eps, dtype=self._grad_norm_squared_avg.dtype),
       self._grad_norm_squared_avg
-      - tf.add_n([tf.reduce_sum(val) for val in self._grad_avg_squared]))
+      - tf.add_n([tf.reduce_sum(val) for val in self._grad_avg_squared] ) )
     if self._sparsity_debias:
       self._grad_var *= self._sparsity_avg
     return grad_var_ops
@@ -284,7 +287,7 @@ class YFOptimizer(object):
 
   def get_mu_tensor(self):
     root = self.get_cubic_root()
-    dr = (self._h_max + eps) / (self._h_min + eps)
+    dr = tf.maximum( (self._h_max + eps) / (self._h_min + eps), 1.0 + eps)
     mu = tf.maximum(
       root**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
     return mu
@@ -300,11 +303,15 @@ class YFOptimizer(object):
         lambda: self._lr_var))
 
     with tf.control_dependencies([self._mu, self._lr]):
-      self._mu = self._beta * self._mu_var + (1 - self._beta) * self._mu
-      self._lr = self._beta * self._lr_var + (1 - self._beta) * self._lr
-      with tf.control_dependencies([self._mu, self._lr] ):
-        assign_hyper_ops.append(tf.assign(self._mu_var, self._mu))
-        assign_hyper_ops.append(tf.assign(self._lr_var, tf.minimum(self._lr, self._lr_grad_thresh / (self._grad_norm + eps) ) ) )
+      if self._use_unsmoothed_lr_mu:
+        assign_hyper_ops.append(tf.assign(self._mu_var, self._mu) )
+        assign_hyper_ops.append(tf.assign(self._lr_var, self._lr) )
+      else:
+        self._mu = self._beta * self._mu_var + (1 - self._beta) * self._mu
+        self._lr = self._beta * self._lr_var + (1 - self._beta) * self._lr
+        with tf.control_dependencies([self._mu, self._lr] ):
+          assign_hyper_ops.append(tf.assign(self._mu_var, self._mu) )
+          assign_hyper_ops.append(tf.assign(self._lr_var, self._lr) )
     assign_hyper_op = tf.group(*assign_hyper_ops)
     return assign_hyper_op
 
