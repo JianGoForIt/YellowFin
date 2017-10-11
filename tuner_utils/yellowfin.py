@@ -170,6 +170,12 @@ class YFOptimizer(object):
       if self._sparsity_debias:
         self._h_min = self._h_min * self._sparsity_avg
         self._h_max = self._h_max * self._sparsity_avg
+
+      # DEBUG
+      self._h_min = tf.Print(self._h_min, [self._global_step, self._h_min], message="h_min")
+      self._h_max = tf.Print(self._h_max, [self._global_step, self._h_max], message="h_max")
+
+
     curv_range_ops.append(avg_op)
     return curv_range_ops
 
@@ -280,6 +286,10 @@ class YFOptimizer(object):
 
   def get_lr_tensor(self):
     lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + eps)
+
+    # DEBUG
+    lr = tf.Print(lr, [self._global_step, lr], message="lr")
+
     return lr
 
   def get_cubic_root(self):
@@ -312,6 +322,12 @@ class YFOptimizer(object):
     dr = tf.maximum( (self._h_max + eps) / (self._h_min + eps), 1.0 + eps)
     mu = tf.maximum(
       root**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
+
+
+    # DEBUG
+    mu = tf.Print(mu, [self._global_step, mu], message="momentum")
+
+
     return mu
 
   def update_hyper_param(self):
