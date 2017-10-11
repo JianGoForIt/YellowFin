@@ -30,7 +30,7 @@ class YFOptimizer(object):
   def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None,
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
                sparsity_debias=True, use_locking=False, name="YellowFin",
-               use_nesterov=False, lr_grad_thresh=1.0, use_unsmoothed_lr_mu=True):
+               use_nesterov=False, lr_grad_thresh=1.0, use_unsmoothed_lr_mu=False):
     """
     Construct a new YellowFin optimizer.
 
@@ -215,11 +215,11 @@ class YFOptimizer(object):
       self._sparsity_avg = self._moving_averager.average(self._sparsity)
     return avg_op
 
-  def after_apply(self):
+  def before_apply(self):
     self._moving_averager = tf.train.ExponentialMovingAverage(
       decay=self._beta, zero_debias=self._zero_debias)
     assert self._grads is not None and len(self._grads) > 0
-    after_apply_ops = []
+    before_apply_ops = []
 
     # get per var g**2 and norm**2
     self._grad_squared = []
@@ -227,6 +227,11 @@ class YFOptimizer(object):
     for v, g in zip(self._tvars, self._grads):
       if g is None:
         continue
+
+      # DEBUG
+      g = tf.Print(g, [self._global_step, g], "statistic g")
+
+
       with ops.colocate_with(v):
         self._grad_squared.append(tf.square(g))
     self._grad_norm_squared = [
@@ -234,7 +239,7 @@ class YFOptimizer(object):
 
     if self._sparsity_debias:
       avg_op_sparsity = self.grad_sparsity()
-      after_apply_ops.append(avg_op_sparsity)
+      before_apply_ops.append(avg_op_sparsity)
 
     # the following running average on squared norm of gradient is shared
     # by `grad_variance` and `dist_to_opt`
@@ -244,17 +249,17 @@ class YFOptimizer(object):
                                      for val in self._grad_norm_squared]
       self._grad_norm_squared = tf.add_n(self._grad_norm_squared)
       self._grad_norm_squared_avg = tf.add_n(self._grad_norm_squared_avg)
-    after_apply_ops.append(avg_op)
+    before_apply_ops.append(avg_op)
 
     with tf.control_dependencies([avg_op]):
       curv_range_ops = self.curvature_range()
-      after_apply_ops += curv_range_ops
+      before_apply_ops += curv_range_ops
       grad_var_ops = self.grad_variance()
-      after_apply_ops += grad_var_ops
+      before_apply_ops += grad_var_ops
       dist_to_opt_ops = self.dist_to_opt()
-      after_apply_ops += dist_to_opt_ops
+      before_apply_ops += dist_to_opt_ops
 
-    return tf.group(*after_apply_ops)
+    return tf.group(*before_apply_ops)
 
   def get_lr_tensor(self):
     lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + eps)
@@ -318,39 +323,74 @@ class YFOptimizer(object):
   def get_name(self):
       return self._optimizer.get_name()
 
+  # def apply_gradients(self, grads_tvars, global_step=None, name=None):
+  #   self._grads, self._tvars = zip(
+  #     *[(g, t) for g, t in grads_tvars if g is not None])
+
+  #   with tf.variable_scope("apply_updates"):
+  #     if self._clip_thresh_var is not None:
+  #       self._grads, self._grads_norm = tf.clip_by_global_norm(
+  #         self._grads, self._clip_thresh_var)
+  #       apply_grad_op = self._optimizer.apply_gradients(
+  #         zip(self._grads, self._tvars), global_step, name)
+  #     else:
+  #       apply_grad_op = self._optimizer.apply_gradients(
+  #         zip(self._grads, self._tvars), global_step, name)
+
+  #   with tf.variable_scope("after_apply"):
+  #     # the dependencies ideally only need to be after clip is done,
+  #     # i.e. dependes on self._grads. However, the control_dependencies
+  #     # does not support indexed slice for sparse gradients.
+  #     # The alternative dependencies here might be slightly slower due
+  #     # to less parallelization.
+  #     with tf.control_dependencies([apply_grad_op, ]):
+  #       after_apply_op = self.after_apply()
+
+  #   with tf.variable_scope("update_hyper"):
+  #     with tf.control_dependencies([after_apply_op]):
+  #       update_hyper_op = self.update_hyper_param()
+
+  #   with tf.control_dependencies([update_hyper_op]):
+  #     self._increment_global_step_op = tf.assign(
+  #       self._global_step, self._global_step + 1)
+
+  #   return tf.group(apply_grad_op, after_apply_op, update_hyper_op,
+  #                   self._increment_global_step_op)
+
   def apply_gradients(self, grads_tvars, global_step=None, name=None):
     self._grads, self._tvars = zip(
       *[(g, t) for g, t in grads_tvars if g is not None])
 
-    with tf.variable_scope("apply_updates"):
-      if self._clip_thresh_var is not None:
-        self._grads, self._grads_norm = tf.clip_by_global_norm(
-          self._grads, self._clip_thresh_var)
-        apply_grad_op = self._optimizer.apply_gradients(
-          zip(self._grads, self._tvars), global_step, name)
-      else:
-        apply_grad_op = self._optimizer.apply_gradients(
-          zip(self._grads, self._tvars), global_step, name)
+    if self._clip_thresh_var is not None:
+      self._grads, self._grads_norm = tf.clip_by_global_norm(
+        self._grads, self._clip_thresh_var)
 
-    with tf.variable_scope("after_apply"):
-      # the dependencies ideally only need to be after clip is done,
-      # i.e. dependes on self._grads. However, the control_dependencies
-      # does not support indexed slice for sparse gradients.
-      # The alternative dependencies here might be slightly slower due
-      # to less parallelization.
-      with tf.control_dependencies([apply_grad_op, ]):
-        after_apply_op = self.after_apply()
+    with tf.variable_scope("before_apply"):
+      before_apply_op = self.before_apply()
 
     with tf.variable_scope("update_hyper"):
-      with tf.control_dependencies([after_apply_op]):
+      with tf.control_dependencies([before_apply_op]):
         update_hyper_op = self.update_hyper_param()
 
-    with tf.control_dependencies([update_hyper_op]):
+    with tf.variable_scope("apply_updates"):
+      with tf.control_dependencies([update_hyper_op]):
+
+        # DEBUG
+        print("check results", type(self._grads[0]) )
+        self._grads = list(self._grads)
+        self._grads[0] = tf.Print(self._grads[0], [self._global_step, self._grads[0] ], "apply g")
+
+
+        apply_grad_op = self._optimizer.apply_gradients(
+          zip(self._grads, self._tvars), global_step, name)
+
+    with tf.control_dependencies([apply_grad_op]):
       self._increment_global_step_op = tf.assign(
         self._global_step, self._global_step + 1)
 
-    return tf.group(apply_grad_op, after_apply_op, update_hyper_op,
+    return tf.group(before_apply_op, update_hyper_op, apply_grad_op,
                     self._increment_global_step_op)
+
 
   def compute_gradients(self, loss, var_list=None,
                         gate_gradients=GATE_OP,
