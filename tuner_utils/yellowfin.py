@@ -73,6 +73,9 @@ class YFOptimizer(object):
       https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L140
     """
 
+    # TODO disable input argument?
+    learning_rate = 0.0001
+    momentum = 0.0
     self._lr = learning_rate
     self._mu = momentum
 
@@ -102,8 +105,9 @@ class YFOptimizer(object):
     # for global step counting
     self._global_step = tf.Variable(0, trainable=False)
 
-    # for conditional tuning
-    self._do_tune = tf.greater(self._global_step, tf.constant(0))
+    # start tuning after we have collect data from curv_win_width iterations.
+    # Before that we use very small learning rate and 0.0 momentum
+    self._do_tune = tf.greater(self._global_step, tf.constant(curv_win_width - 1) )
 
     self._zero_debias = zero_debias
     self._sparsity_debias = sparsity_debias
@@ -141,6 +145,7 @@ class YFOptimizer(object):
       self._curv_win, tf.constant([0, ]), tf.expand_dims(
         tf.minimum(tf.constant(self._curv_win_width),
                    self._global_step + 1), dim=0))
+
     if self._h_min_log_smooth:
       self._h_min_t = tf.log(tf.reduce_min(valid_window) + eps)
     else:
@@ -286,10 +291,6 @@ class YFOptimizer(object):
 
   def get_lr_tensor(self):
     lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + eps)
-
-    # DEBUG
-    lr = tf.Print(lr, [self._global_step, lr], message="lr")
-
     return lr
 
   def get_cubic_root(self):
@@ -322,12 +323,6 @@ class YFOptimizer(object):
     dr = tf.maximum( (self._h_max + eps) / (self._h_min + eps), 1.0 + eps)
     mu = tf.maximum(
       root**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
-
-
-    # DEBUG
-    mu = tf.Print(mu, [self._global_step, mu], message="momentum")
-
-
     return mu
 
   def update_hyper_param(self):
