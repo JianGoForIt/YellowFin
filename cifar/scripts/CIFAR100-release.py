@@ -63,7 +63,7 @@ hps_train = resnet_model.HParams(batch_size=batch_size_train,
                                 weight_decay_rate=0.0002,
                                 relu_leakiness=0.1,
                                 optimizer=args.opt_method,
-                                model_scope='train'
+                                model_scope='train',
                                 h_max_log_smooth=args.h_max_log_smooth)
 hps_eval = resnet_model.HParams(batch_size=batch_size_test,
                                num_classes=NUM_CLASSES,
@@ -77,7 +77,7 @@ hps_eval = resnet_model.HParams(batch_size=batch_size_test,
                                weight_decay_rate=0.0002,
                                relu_leakiness=0.1,
                                optimizer=args.opt_method,
-                               model_scope='train'
+                               model_scope='train',
                                h_max_log_smooth=args.h_max_log_smooth)
 
 # specify how much memory to use on each GPU
