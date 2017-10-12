@@ -323,12 +323,12 @@ class YFOptimizer(object):
       self._do_tune, lambda: self.get_mu_tensor(),
       lambda: self._mu_var))
     with tf.control_dependencies([self._mu]):
-      # self._lr = tf.identity(tf.cond(
-      #   self._do_tune, lambda: self.get_lr_tensor(),
-      #   lambda: self._lr_var))
       self._lr = tf.identity(tf.cond(
-        self._do_tune, lambda: tf.minimum(self.get_lr_tensor(), 1.1 * self._lr_var),
+        self._do_tune, lambda: self.get_lr_tensor(),
         lambda: self._lr_var))
+      # self._lr = tf.identity(tf.cond(
+      #   self._do_tune, lambda: tf.minimum(self.get_lr_tensor(), 1.1 * self._lr_var),
+      #   lambda: self._lr_var))
 
     with tf.control_dependencies([self._mu, self._lr]):
       if self._use_unsmoothed_lr_mu:
