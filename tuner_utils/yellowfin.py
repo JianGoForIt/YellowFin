@@ -285,7 +285,7 @@ class YFOptimizer(object):
     lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + eps)
 
     # DEBUG
-    lr = tf.minimum(lr, lr * (tf.to_float(self._global_step) + 1.0) / tf.to_float(tf.constant(self._curv_win_width) ) )
+    lr = tf.minimum(lr, lr * (tf.to_float(self._global_step) + 1.0) / 10.0 / tf.to_float(tf.constant(self._curv_win_width) ) )
     # END of DEBUG
 
     return lr
