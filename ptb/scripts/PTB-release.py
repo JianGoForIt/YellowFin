@@ -10,6 +10,9 @@ from ptb_word_lm import *
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import sys
+sys.path.append("../tuner_utils/")
+from debug_plot import plot_func
 
 import argparse
 
@@ -48,6 +51,25 @@ def construct_model(config, eval_config, raw_data, opt_method):
 
   return m, mvalid, mtest
 
+loss_list_visual = []
+local_curv_list = [] 
+max_curv_list = []
+min_curv_list = []
+lr_g_norm_list = [] 
+lr_g_norm_squared_list = [] 
+lr_list = [] 
+lr_t_list = []
+dr_list = [] 
+mu_list = [] 
+mu_t_list = [] 
+grad_avg_norm_list = []
+dist_list = []
+grad_var_list = []
+move_lr_g_norm_list = [] 
+move_lr_g_norm_squared_list = [] 
+fast_view_act_list = [] 
+lr_grad_norm_clamp_act_list = []
+
 
 def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, test_int=1000):
   global state
@@ -64,7 +86,14 @@ def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, tes
     "final_state": model.final_state,
     "grads": model.grads,
     "grad_norm": model.grad_norm,
-    "model": model.tvars
+    "model": model.tvars,
+    # for visualization
+    "h_max": model.optimizer._h_max,
+    "h_min": model.optimizer._h_min,
+    "grad_var": model.optimizer._grad_var,
+    "dist_to_opt": model.optimizer._dist_to_opt_avg,
+    "lr": model.optimizer._lr,
+    "mu": model.optimizer._mu
   }
   if eval_op is not None:
     fetches["eval_op"] = eval_op
@@ -80,12 +109,41 @@ def train_single_step(sess, model, model_eval, model_test, eval_op, iter_id, tes
   grad_norm = vals["grad_norm"]
   w = vals["model"]
 
+
+  # for printing issue
+  loss_list_visual.append(cost)
+  local_curv_list.append(vals["grad_norm"]**2)
+  max_curv_list.append(vals["h_max"])
+  min_curv_list.append(vals["h_min"])
+  lr_g_norm_list.append(vals["lr"] * vals["grad_norm"]) 
+  lr_g_norm_squared_list.append(vals["lr"] * vals["grad_norm"]**2) 
+  lr_list.append(vals["lr"])
+  lr_t_list.append(vals["lr"])
+  dr_list.append((vals["h_max"] + 1e-6) / (vals["h_min"] + 1e-6)) 
+  mu_list.append(vals["mu"]) 
+  mu_t_list.append(vals["mu"]) 
+  # grad_avg_norm_list = []
+  dist_list.append(vals["dist_to_opt"])
+  grad_var_list.append(vals["grad_var"])
+  # move_lr_g_norm_list = [] 
+  # move_lr_g_norm_squared_list = [] 
+  # fast_view_act_list = [] 
+  # lr_grad_norm_clamp_act_list = []
+
   costs += cost
   iters += model.input.num_steps
 
   train_perp = np.exp(cost / model.input.num_steps)
   val_perp = None
   test_perp = None
+
+  if iter_id == 10 or iter_id == 30 or iter_id == 100 or iter_id %1000 == 0:
+    plot_func(args.log_dir, iter_id, loss_list_visual, local_curv_list, max_curv_list, min_curv_list,
+             lr_g_norm_list, lr_g_norm_squared_list, lr_list, lr_t_list, dr_list, 
+             mu_list, mu_t_list, grad_avg_norm_list,
+             dist_list, grad_var_list, move_lr_g_norm_list, move_lr_g_norm_squared_list, 
+             fast_view_act_list, lr_grad_norm_clamp_act_list)
+    print("figure plotted")
 
 
   if iter_id % (model.input.epoch_size // 10) == 10:

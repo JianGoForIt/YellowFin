@@ -29,7 +29,7 @@ class YFOptimizer(object):
 
   def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None,
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
-               sparsity_debias=True, use_locking=False, name="YellowFin",
+               sparsity_debias=False, use_locking=False, name="YellowFin",
                use_nesterov=False, lr_grad_thresh=1.0, use_unsmoothed_lr_mu=True,
                h_max_log_smooth=False, h_min_log_smooth=True):
     """
@@ -105,7 +105,7 @@ class YFOptimizer(object):
     # for global step counting
     self._global_step = tf.Variable(0, trainable=False)
 
-    self._do_tune = tf.greater(self._global_step, tf.constant(curv_win_width) )
+    self._do_tune = tf.greater(self._global_step, tf.constant(0) )
 
     self._zero_debias = zero_debias
     self._sparsity_debias = sparsity_debias
@@ -323,8 +323,11 @@ class YFOptimizer(object):
       self._do_tune, lambda: self.get_mu_tensor(),
       lambda: self._mu_var))
     with tf.control_dependencies([self._mu]):
+      # self._lr = tf.identity(tf.cond(
+      #   self._do_tune, lambda: self.get_lr_tensor(),
+      #   lambda: self._lr_var))
       self._lr = tf.identity(tf.cond(
-        self._do_tune, lambda: self.get_lr_tensor(),
+        self._do_tune, lambda: tf.minimum(self.get_lr_tensor(), 1.1 * self._lr_var),
         lambda: self._lr_var))
 
     with tf.control_dependencies([self._mu, self._lr]):

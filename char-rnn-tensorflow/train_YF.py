@@ -54,6 +54,8 @@ def main():
                         """)
     parser.add_argument('--opt_method', type=str, default="YF", help="the optimizer to use")
     parser.add_argument('--seed', type=int, default=1, help="random seed for numpy and pytorch")
+    parser.add_argument('--h_max_log_smooth', action='store_true')
+
     args = parser.parse_args()
 
     np.random.seed(args.seed)

@@ -185,7 +185,7 @@ class PTBModel(object):
 
     self.grads = tf.gradients(cost, tvars)
 
-    grads_clip, self.grad_norm = tf.clip_by_global_norm(self.grads, self._grad_norm_thresh)
+    grads_clip, self.grad_norm = tf.clip_by_global_norm(self.grads, 100000000.0)#self._grad_norm_thresh)
     if opt_method == 'sgd':
       print("using sgd")
       optimizer = tf.train.GradientDescentOptimizer(self._lr)
@@ -207,7 +207,7 @@ class PTBModel(object):
       print("using YF")
       #optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
       print("h max log smooth", config.h_max_log_smooth)
-      optimizer = YFOptimizer(h_max_log_smooth=config.h_max_log_smooth)
+      self.optimizer = optimizer = YFOptimizer(h_max_log_smooth=config.h_max_log_smooth)
       self._train_op = optimizer.apply_gradients(zip(self.grads, tvars) )
     elif opt_method == "adagrad":
       print("using adagrad")
