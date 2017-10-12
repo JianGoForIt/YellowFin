@@ -154,7 +154,7 @@ class YFOptimizer(object):
       self._h_max_t = tf.reduce_max(valid_window)
 
     curv_range_ops = []
-    with tf.control_dependencies([self._h_min_t, self._h_max_t]):
+    with tf.control_dependencies([self._h_min_t, self._h_max_t] ):
       avg_op = self._moving_averager.apply(
         [self._h_min_t, self._h_max_t])
       with tf.control_dependencies([avg_op]):
@@ -283,6 +283,11 @@ class YFOptimizer(object):
 
   def get_lr_tensor(self):
     lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + eps)
+
+    # DEBUG
+    lr = tf.minimum(lr, lr * (tf.to_float(self._global_step) + 1.0) / tf.to_float(tf.constant(self._curv_win_width) ) )
+    # END of DEBUG
+
     return lr
 
   def get_cubic_root(self):
@@ -397,12 +402,25 @@ class YFOptimizer(object):
 
     with tf.variable_scope("apply_updates"):
       with tf.control_dependencies([update_hyper_op]):
+
+        # # DEBUG clip according to h_max
+        # self._grads, self._grads_norm = tf.clip_by_global_norm(
+        #   self._grads, tf.cond(self._do_tune, lambda: tf.sqrt(tf.sqrt(self._h_max * self._h_min) ),
+        #   lambda: tf.constant(1e10)))
+        # # END of DEBUG
+
         apply_grad_op = self._optimizer.apply_gradients(
           zip(self._grads, self._tvars), global_step, name)
 
     with tf.control_dependencies([apply_grad_op]):
       self._increment_global_step_op = tf.assign(
         self._global_step, self._global_step + 1)
+      
+      # # DEBUG
+      # self._grad_clip_thresh = tf.cond(
+      # tf.logical_and(self._do_tune, tf.greater(self._grad_norm_squared, 2.0 * self._h_max) ), 
+      # lambda: tf.sqrt(tf.sqrt(self._h_min * self._h_max) ), lambda: 1e10)
+      # # END of DEBUG
 
     return tf.group(before_apply_op, update_hyper_op, apply_grad_op,
                     self._increment_global_step_op)
