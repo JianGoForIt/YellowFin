@@ -31,7 +31,7 @@ class YFOptimizer(object):
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
                sparsity_debias=False, use_locking=False, name="YellowFin",
                use_nesterov=False, lr_grad_thresh=1.0, use_unsmoothed_lr_mu=True,
-               h_max_log_smooth=False, h_min_log_smooth=True):
+               h_max_log_smooth=True, h_min_log_smooth=True):
     """
     Construct a new YellowFin optimizer.
 
