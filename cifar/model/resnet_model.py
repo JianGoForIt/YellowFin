@@ -161,7 +161,7 @@ class ResNet(object):
         global_step=self.global_step, name='train_step')
     elif self.hps.optimizer == 'YF':
       print("using YF h_max log smooth", self.hps.h_max_log_smooth)
-      self.optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0, h_max_log_smooth=self.hps.h_max_log_smooth)
+      self.optimizer = YFOptimizer(h_max_log_smooth=self.hps.h_max_log_smooth)
       apply_op = self.optimizer.apply_gradients(
         zip(self.grads, self.trainable_variables) )
     elif self.hps.optimizer == "adam":
