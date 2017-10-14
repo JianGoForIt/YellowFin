@@ -1,6 +1,6 @@
-for seed in 2 1 3
+for seed in 2
 do
-  python train_YF.py --log_dir=./results/YF_seed_${seed}_h_max_linear_test_slow_start_10_win --data_dir=./data/tinyshakespeare/ --opt_method=YF --seed=${seed}
+  python train_YF.py --log_dir=./results/YF_seed_${seed}_h_max_log_test_clipping_added --data_dir=./data/tinyshakespeare/ --opt_method=YF --seed=${seed} --h_max_log_smooth
 
 #  python train.py --log_dir=./results/Adam_0.0005_seed_${seed}/ --data_dir=./data/tinyshakespeare/ --learning_rate=0.0005 --seed=${seed} --opt_method=Adam
 #  python train.py --log_dir=./results/Adam_0.001_seed_${seed}/ --data_dir=./data/tinyshakespeare/ --learning_rate=0.001 --seed=${seed} --opt_method=Adam

@@ -13,8 +13,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
-# eps for numerical stability
-eps = 1e-6
+# EPS for numerical stability
+EPS = 1e-6
+LARGE_FLOAT_VAL = 1e15
 
 class YFOptimizer(object):
   """
@@ -27,11 +28,12 @@ class YFOptimizer(object):
   GATE_OP = tf.train.Optimizer.GATE_OP
   GATE_GRAPH = tf.train.Optimizer.GATE_GRAPH
 
-  def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None,
+  def __init__(self, learning_rate=0.0001, momentum=0.0, clip_thresh=None,
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
                sparsity_debias=False, use_locking=False, name="YellowFin",
-               use_nesterov=False, lr_grad_thresh=1.0, use_unsmoothed_lr_mu=True,
-               h_max_log_smooth=True, h_min_log_smooth=True):
+               use_nesterov=False, use_unsmoothed_lr_mu=True,
+               h_max_log_smooth=True, h_min_log_smooth=True,
+               use_adapt_grad_clip=True, stat_protect_fac=100.0):
     """
     Construct a new YellowFin optimizer.
 
@@ -72,10 +74,6 @@ class YFOptimizer(object):
       `lr_factor` can be found here:
       https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L140
     """
-
-    # TODO disable input argument?
-    learning_rate = 0.0001
-    momentum = 0.0
     self._lr = learning_rate
     self._mu = momentum
 
@@ -116,15 +114,21 @@ class YFOptimizer(object):
     self._curv_win_width = curv_win_width
     self._curv_win = None
 
-    # for threshold preventing exploding lr or gradient
-    self._lr_grad_thresh = lr_grad_thresh
-
     # option for using smoothed or unsmoothed lr and mu
     self._use_unsmoothed_lr_mu = use_unsmoothed_lr_mu
 
     # options for curvature envelop smoothing
     self._h_max_log_smooth = h_max_log_smooth
     self._h_min_log_smooth = h_min_log_smooth
+
+    # for adaptive gradient clipping
+    self._adapt_grad_clip_thresh = \
+      tf.Variable(LARGE_FLOAT_VAL, dtype=tf.float32, trainable=False)
+    self._adapt_grad_clip_target_val = \
+      tf.Variable(LARGE_FLOAT_VAL, dtype=tf.float32, trainable=False)
+
+    # prevent exploding gradient from ruining the statistics
+    self._stat_protect_fac = stat_protect_fac
 
   def curvature_range(self):
     # set up the curvature window
@@ -134,10 +138,10 @@ class YFOptimizer(object):
     # we can use log smoothing for curvature range to follow trend faster
     # self._curv_win = tf.scatter_update(
     #   self._curv_win, self._global_step % self._curv_win_width,
-    #   tf.log(self._grad_norm_squared + eps))
+    #   tf.log(self._grad_norm_squared + EPS))
     self._curv_win = tf.scatter_update(
       self._curv_win, self._global_step % self._curv_win_width,
-      self._grad_norm_squared + eps)
+      self._grad_norm_squared + EPS)
     # note here the iterations start from iteration 0
     valid_window = tf.slice(
       self._curv_win, tf.constant([0, ]), tf.expand_dims(
@@ -145,11 +149,11 @@ class YFOptimizer(object):
                    self._global_step + 1), dim=0))
 
     if self._h_min_log_smooth:
-      self._h_min_t = tf.log(tf.reduce_min(valid_window) + eps)
+      self._h_min_t = tf.log(tf.reduce_min(valid_window) + EPS)
     else:
       self._h_min_t = tf.reduce_min(valid_window)
     if self._h_max_log_smooth:
-      self._h_max_t = tf.log(tf.reduce_max(valid_window) + eps)
+      self._h_max_t = tf.log(tf.reduce_max(valid_window) + EPS)
     else:
       self._h_max_t = tf.reduce_max(valid_window)
 
@@ -194,7 +198,7 @@ class YFOptimizer(object):
         self._moving_averager.average(val) for val in tensor_to_avg]
       self._grad_avg_squared = [tf.square(val) for val in self._grad_avg]
     self._grad_var = tf.maximum(
-      tf.constant(eps, dtype=self._grad_norm_squared_avg.dtype),
+      tf.constant(EPS, dtype=self._grad_norm_squared_avg.dtype),
       self._grad_norm_squared_avg
       - tf.add_n([tf.reduce_sum(val) for val in self._grad_avg_squared] ) )
     if self._sparsity_debias:
@@ -213,7 +217,7 @@ class YFOptimizer(object):
       # single iteration distance estimation
       # note that self._grad_norm_avg is per variable
       self._dist_to_opt = (self._grad_norm_avg
-                 / (self._grad_norm_squared_avg + eps) )
+                 / (self._grad_norm_squared_avg + EPS) )
     # running average of distance
     avg_op = self._moving_averager.apply([self._dist_to_opt])
     dist_to_opt_ops.append(avg_op)
@@ -221,7 +225,7 @@ class YFOptimizer(object):
       self._dist_to_opt_avg = tf.identity(
         self._moving_averager.average(self._dist_to_opt))
       if self._sparsity_debias:
-        self._dist_to_opt_avg /= (tf.sqrt(self._sparsity_avg) + eps)
+        self._dist_to_opt_avg /= (tf.sqrt(self._sparsity_avg) + EPS)
     return dist_to_opt_ops
 
   def grad_sparsity(self):
@@ -282,12 +286,8 @@ class YFOptimizer(object):
     return tf.group(*before_apply_ops)
 
   def get_lr_tensor(self):
-    lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + eps)
-
-    # DEBUG
+    lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + EPS)
     lr = tf.minimum(lr, lr * (tf.to_float(self._global_step) + 1.0) / 10.0 / tf.to_float(tf.constant(self._curv_win_width) ) )
-    # END of DEBUG
-
     return lr
 
   def get_cubic_root(self):
@@ -307,17 +307,17 @@ class YFOptimizer(object):
     #   tf.Assert(tf.logical_not(tf.is_inf(self._h_min) ), [self._h_min,]), 
     #   tf.Assert(tf.logical_not(tf.is_inf(self._grad_var) ), [self._grad_var,])]
     # with tf.control_dependencies(assert_array):
-    # eps in the numerator to prevent momentum being exactly one in case of 0 gradient
-    p = (self._dist_to_opt_avg + eps)**2 * (self._h_min + eps)**2 / 2 / (self._grad_var + eps)
+    # EPS in the numerator to prevent momentum being exactly one in case of 0 gradient
+    p = (self._dist_to_opt_avg + EPS)**2 * (self._h_min + EPS)**2 / 2 / (self._grad_var + EPS)
     w3 = (-tf.sqrt(p**2 + 4.0 / 27.0 * p**3) - p) / 2.0
     w = tf.sign(w3) * tf.pow(tf.abs(w3), 1.0/3.0)
-    y = w - p / 3.0 / (w + eps)
+    y = w - p / 3.0 / (w + EPS)
     x = y + 1
     return x
 
   def get_mu_tensor(self):
     root = self.get_cubic_root()
-    dr = tf.maximum( (self._h_max + eps) / (self._h_min + eps), 1.0 + eps)
+    dr = tf.maximum( (self._h_max + EPS) / (self._h_min + EPS), 1.0 + EPS)
     mu = tf.maximum(
       root**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
     return mu
@@ -331,9 +331,6 @@ class YFOptimizer(object):
       self._lr = tf.identity(tf.cond(
         self._do_tune, lambda: self.get_lr_tensor(),
         lambda: self._lr_var))
-      # self._lr = tf.identity(tf.cond(
-      #   self._do_tune, lambda: tf.minimum(self.get_lr_tensor(), 1.1 * self._lr_var),
-      #   lambda: self._lr_var))
 
     with tf.control_dependencies([self._mu, self._lr]):
       if self._use_unsmoothed_lr_mu:
@@ -351,47 +348,20 @@ class YFOptimizer(object):
   def get_name(self):
       return self._optimizer.get_name()
 
-  # def apply_gradients(self, grads_tvars, global_step=None, name=None):
-  #   self._grads, self._tvars = zip(
-  #     *[(g, t) for g, t in grads_tvars if g is not None])
-
-  #   with tf.variable_scope("apply_updates"):
-  #     if self._clip_thresh_var is not None:
-  #       self._grads, self._grads_norm = tf.clip_by_global_norm(
-  #         self._grads, self._clip_thresh_var)
-  #       apply_grad_op = self._optimizer.apply_gradients(
-  #         zip(self._grads, self._tvars), global_step, name)
-  #     else:
-  #       apply_grad_op = self._optimizer.apply_gradients(
-  #         zip(self._grads, self._tvars), global_step, name)
-
-  #   with tf.variable_scope("after_apply"):
-  #     # the dependencies ideally only need to be after clip is done,
-  #     # i.e. dependes on self._grads. However, the control_dependencies
-  #     # does not support indexed slice for sparse gradients.
-  #     # The alternative dependencies here might be slightly slower due
-  #     # to less parallelization.
-  #     with tf.control_dependencies([apply_grad_op, ]):
-  #       after_apply_op = self.after_apply()
-
-  #   with tf.variable_scope("update_hyper"):
-  #     with tf.control_dependencies([after_apply_op]):
-  #       update_hyper_op = self.update_hyper_param()
-
-  #   with tf.control_dependencies([update_hyper_op]):
-  #     self._increment_global_step_op = tf.assign(
-  #       self._global_step, self._global_step + 1)
-
-  #   return tf.group(apply_grad_op, after_apply_op, update_hyper_op,
-  #                   self._increment_global_step_op)
-
   def apply_gradients(self, grads_tvars, global_step=None, name=None):
     self._grads, self._tvars = zip(
       *[(g, t) for g, t in grads_tvars if g is not None])
 
+    # for manual gradient clipping
     if self._clip_thresh_var is not None:
       self._grads, self._grads_norm = tf.clip_by_global_norm(
         self._grads, self._clip_thresh_var)
+
+    # loosely adaptive clipping of gradient in case exploding gradient ruins statistics
+    thresh = tf.cond(self._do_tune, 
+      lambda: tf.sqrt(self._stat_protect_fac * self._adapt_grad_clip_thresh**2),
+      lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
+    self._grads, self._grads_norm = tf.clip_by_global_norm(self._grads, thresh)
 
     with tf.variable_scope("before_apply"):
       before_apply_op = self.before_apply()
@@ -403,11 +373,13 @@ class YFOptimizer(object):
     with tf.variable_scope("apply_updates"):
       with tf.control_dependencies([update_hyper_op]):
 
-        # # DEBUG clip according to h_max
-        # self._grads, self._grads_norm = tf.clip_by_global_norm(
-        #   self._grads, tf.cond(self._do_tune, lambda: tf.sqrt(tf.sqrt(self._h_max * self._h_min) ),
-        #   lambda: tf.constant(1e10)))
-        # # END of DEBUG
+        # clip exploding gradient according to h_max
+        thresh = tf.cond(tf.greater(tf.global_norm(self._grads), 
+          self._adapt_grad_clip_thresh), 
+          lambda: self._adapt_grad_clip_target_val,
+          lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
+        self._grads, self._grads_norm = tf.clip_by_global_norm(
+          self._grads, thresh)
 
         apply_grad_op = self._optimizer.apply_gradients(
           zip(self._grads, self._tvars), global_step, name)
@@ -416,13 +388,13 @@ class YFOptimizer(object):
       self._increment_global_step_op = tf.assign(
         self._global_step, self._global_step + 1)
       
-      # # DEBUG
-      # self._grad_clip_thresh = tf.cond(
-      # tf.logical_and(self._do_tune, tf.greater(self._grad_norm_squared, 2.0 * self._h_max) ), 
-      # lambda: tf.sqrt(tf.sqrt(self._h_min * self._h_max) ), lambda: 1e10)
-      # # END of DEBUG
+      self._adapt_grad_clip_thresh_op = \
+        tf.assign(self._adapt_grad_clip_thresh, tf.sqrt(self._h_max) )
+      self._adapt_grad_clip_target_val_op = \
+        tf.assign(self._adapt_grad_clip_target_val, tf.sqrt(self._h_max) )
 
     return tf.group(before_apply_op, update_hyper_op, apply_grad_op,
+                    self._adapt_grad_clip_thresh_op, self._adapt_grad_clip_target_val_op,
                     self._increment_global_step_op)
 
 
