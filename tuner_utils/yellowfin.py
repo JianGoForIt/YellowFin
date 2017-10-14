@@ -282,7 +282,6 @@ class YFOptimizer(object):
       before_apply_ops += grad_var_ops
       dist_to_opt_ops = self.dist_to_opt()
       before_apply_ops += dist_to_opt_ops
-
     return tf.group(*before_apply_ops)
 
   def get_lr_tensor(self):
@@ -392,6 +391,8 @@ class YFOptimizer(object):
         tf.assign(self._adapt_grad_clip_thresh, tf.sqrt(self._h_max) )
       self._adapt_grad_clip_target_val_op = \
         tf.assign(self._adapt_grad_clip_target_val, tf.sqrt(self._h_max) )
+      # self._adapt_grad_clip_target_val_op = \
+      #   tf.assign(self._adapt_grad_clip_target_val, tf.sqrt(tf.sqrt(self._h_max * self._h_min)))
 
     return tf.group(before_apply_op, update_hyper_op, apply_grad_op,
                     self._adapt_grad_clip_thresh_op, self._adapt_grad_clip_target_val_op,
