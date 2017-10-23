@@ -95,7 +95,7 @@ model_train, model_eval, init_op, sess = setup(hps_train, hps_eval, gpu_mem_port
 #  os.mkdir(general_log_dir)
 #log_dir = general_log_dir + "/test-release-cifar100-final"
 log_dir = args.log_dir
-num_step = 70001
+num_step = 150001
 display_interval=2500
 test_interval = 1000
 
