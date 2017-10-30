@@ -40,8 +40,8 @@ bash download.sh
 The experiments on 110 layer ResNet with CIFAR10 and 164 layer ResNet with CIFAR100 can be launched using
 ```
 cd cifar/scripts
-python CIFAR10-release.py (for CIFAR10)
-python CIFAR100-release.py (for CIFAR10)
+python CIFAR10-release.py --log_dir=path_to_log --opt_method=YF (for CIFAR10)
+python CIFAR100-release.py --log_dir=path_to_log --opt_method=YF (for CIFAR100)
 ```
 
 ### Run Penn Treebank LSTM experiments
@@ -72,7 +72,10 @@ Note the WSJ is not public available. Please contact us or the author of [Parsin
 
 * **Interface for manual finer control**: If you want to more finely control the learning rate, please use ```lr_factor``` in the YFOptimizer class. E.g. if you want to use a manually set constant learning rate, you can assign ```desired_lr / self._lr_var``` to ```self.lr_factor``` before applying the gradient at each iteration. If you want to use the typical lr-dropping technique after a ceritain number of epochs, please refer to the example [here](https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L139). 
 
-* **Gradient clipping**: The default setting uses adaptive gradient clipping to prevent gradient explosion, thresholding norm of gradient to the square root of our estimated maximal curvature. If you want to set the clipping threshold manually, please first use ```use_adapt_grad_clip=False``` when initializing the YFOptimmizer to turn off the adaptive clipping. You may use the ```clip_thresh=thresh_norm_of_gradient``` argument when initializing the YFOptimizer to threshold the norm of gradient, or you can do the gradient clipping outside of YFOptimizer. We recommend first turning off gradient clipping, and only turning it on when necessary. 
+* **Gradient clipping**: The default setting uses adaptive gradient clipping to prevent gradient explosion, thresholding norm of gradient to the square root of our estimated maximal curvature. We recommend first fully turning off gradient clipping, and only turning it on when necessary. 
+
+  * If you want to set the clipping threshold manually, please first use ```use_adapt_grad_clip=False``` when initializing the YFOptimmizer to turn off the adaptive clipping. You may use the ```clip_thresh=thresh_norm_of_gradient``` argument when initializing the YFOptimizer to threshold the norm of gradient, or you can do the gradient clipping outside of YFOptimizer. 
+  * if you want to fully turn off gradient clipping inside YFOptimmizer, please set ```use_adapt_grad_clip=False``` when initializing YFOptimizer.
 
 * **Normalization**: When using log probability style losses, please make sure the loss is properly normalized. In some RNN/LSTM cases, the cross_entropy need to be averaged by the number of samples in a minibatch. Sometimes, it also needs to be averaged over the number of classes and the sequence length of each sample in some Tensorflow loss functions. E.g. the cross_etropy loss [here](https://github.com/JianGoForIt/YellowFin/blob/master/ptb/model/ptb_word_lm.py#L168) need to be normalized by the length of sequence and minibatch size.
 
