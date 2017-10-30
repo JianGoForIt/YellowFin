@@ -92,6 +92,9 @@ If you use YellowFin in your paper, please cite the paper:
 }
 ```
 
+## Acknowledgement
+We thank Jack Hessel and Mladen Fernežir for contributing to the codebase. 
+
 ### Implementation for other platforms
 For PyTorch users, we implemented [YellowFin PyTorch repo](https://github.com/JianGoForIt/YellowFin_Pytorch).
 
