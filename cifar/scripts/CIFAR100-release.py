@@ -100,7 +100,7 @@ display_interval=2500
 test_interval = 1000
 
 if not os.path.isdir(log_dir):
-  os.mkdir(log_dir)
+  os.makedirs(log_dir)
 
 sess.run(init_op)
 
