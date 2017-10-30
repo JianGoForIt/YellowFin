@@ -68,7 +68,7 @@ Note the WSJ is not public available. Please contact us or the author of [Parsin
 
 
 ## Detailed guidelines
-* **Basic use**: YFOptimizer() sets initial learnig rate and momentum to 1.0 and 0.0 respectively. This is the uniform setting (i.e. without tuning) for all our PyTorch and Tensorflow experiments. 
+* **Basic use**: YFOptimizer() uses the uniform setting (i.e. without tuning) for all the PyTorch and Tensorflow experiments in our paper. 
 
 * **Interface for manual finer control**: If you want to more finely control the learning rate, please use ```lr_factor``` in the YFOptimizer class. E.g. if you want to use a manually set constant learning rate, you can assign ```desired_lr / self._lr_var``` to ```self.lr_factor``` before applying the gradient at each iteration. If you want to use the typical lr-dropping technique after a ceritain number of epochs, please refer to the example [here](https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L139). 
 
