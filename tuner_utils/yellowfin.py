@@ -122,6 +122,7 @@ class YFOptimizer(object):
     self._h_min_log_smooth = h_min_log_smooth
 
     # for adaptive gradient clipping
+    self._use_adapt_grad_clip = use_adapt_grad_clip
     self._adapt_grad_clip_thresh = \
       tf.Variable(LARGE_FLOAT_VAL, dtype=tf.float32, trainable=False)
     self._adapt_grad_clip_target_val = \
@@ -357,10 +358,11 @@ class YFOptimizer(object):
         self._grads, self._clip_thresh_var)
 
     # loosely adaptive clipping of gradient in case exploding gradient ruins statistics
-    thresh = tf.cond(self._do_tune, 
-      lambda: tf.sqrt(self._stat_protect_fac * self._adapt_grad_clip_thresh**2),
-      lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
-    self._grads, self._grads_norm = tf.clip_by_global_norm(self._grads, thresh)
+    if self._use_adapt_grad_clip:
+      thresh = tf.cond(self._do_tune, 
+        lambda: tf.sqrt(self._stat_protect_fac * self._adapt_grad_clip_thresh**2),
+        lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
+      self._grads, self._grads_norm = tf.clip_by_global_norm(self._grads, thresh)
 
     with tf.variable_scope("before_apply"):
       before_apply_op = self.before_apply()
@@ -373,12 +375,13 @@ class YFOptimizer(object):
       with tf.control_dependencies([update_hyper_op]):
 
         # clip exploding gradient according to h_max
-        thresh = tf.cond(tf.greater(tf.global_norm(self._grads), 
-          self._adapt_grad_clip_thresh), 
-          lambda: self._adapt_grad_clip_target_val,
-          lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
-        self._grads, self._grads_norm = tf.clip_by_global_norm(
-          self._grads, thresh)
+        if self._use_adapt_grad_clip:
+          thresh = tf.cond(tf.greater(tf.global_norm(self._grads), 
+            self._adapt_grad_clip_thresh), 
+            lambda: self._adapt_grad_clip_target_val,
+            lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
+          self._grads, self._grads_norm = tf.clip_by_global_norm(
+            self._grads, thresh)
 
         apply_grad_op = self._optimizer.apply_gradients(
           zip(self._grads, self._tvars), global_step, name)
