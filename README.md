@@ -40,8 +40,8 @@ bash download.sh
 The experiments on 110 layer ResNet with CIFAR10 and 164 layer ResNet with CIFAR100 can be launched using
 ```
 cd cifar/scripts
-python CIFAR10-release.py (for CIFAR10)
-python CIFAR100-release.py (for CIFAR10)
+python CIFAR10-release.py --log_dir=path_to_log --opt_method=YF (for CIFAR10)
+python CIFAR100-release.py --log_dir=path_to_log --opt_method=YF (for CIFAR100)
 ```
 
 ### Run Penn Treebank LSTM experiments
