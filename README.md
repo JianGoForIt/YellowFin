@@ -10,7 +10,7 @@ For more usage details, please refer to the inline documentation of ```tuner_uti
 
 **YellowFin is under active development. Many members of the community have kindly submitted issues and pull requests. We are incorporating fixes and smoothing things out. As a result the repository code is in flux. Please make sure you use the latest version and submit any issues you might have!**
 
-We thank @[mfernezir](https://github.com/mfernezir) for the efforts on standardization of YellowFin in TensorFlow. If you want to use the previous stable version, please check out v1.0 branch.
+<!---We thank @[mfernezir](https://github.com/mfernezir) for the efforts on standardization of YellowFin in TensorFlow. If you want to use the previous stable version, please check out v1.0 branch.--->
 
 
 ## Updates
@@ -22,10 +22,12 @@ We thank @[mfernezir](https://github.com/mfernezir) for the efforts on standardi
 
 **[2017.08.16] Replace numpy root solver with closed form solution using Vieta's substitution for cubic eqaution. It solves the stability issue of the numpy root solver.**
 
+***[2017.10.29] Major fixe for stability. We added eps to protect fractions in our code, as well as an adaptive clipping feature to properly deal with exploding gradient (manual clipping is still supported as described in the detailed instruction below).***
+
 ## Setup instructions for experiments
 Please clone the master branch and follow the instructions to run YellowFin on ResNet for CIFAR10, Bottleneck Resnet on CIRAR100 for image recognition, LSTM on Penn Treebank for language modeling, Char Rnn LSTM on TinyShakespeare and LSTM on Wall Street Journal dataset for constituency parsing. The CIFAR and PTB models we use are slightly adapted from official Tensorflow [ResNet](https://github.com/tensorflow/models/tree/master/resnet) and [LSTM](https://github.com/tensorflow/models/tree/master/tutorials/rnn/ptb). The Char Rnn LSTM and the Parsing LSTM are adapted from [Char Rnn repo](https://github.com/sherjilozair/char-rnn-tensorflow) and [Parsing LSTM repo](https://github.com/cdg720/emnlp2016) respectively. Thanks to the researchers for developing the models.
 
-Note YellowFin is tested under Tensorflow 1.1 and Python 2.7.
+YellowFin is tested under Tensorflow 1.1 and Python 2.7.
 
 ### download data
 Please use the data/download.sh script to download CIFAR10/100 and Penn Treebank dataset. It may take a few minutes depending on the network speed. Other datasets are self-included in the repo.
@@ -66,11 +68,7 @@ Note the WSJ is not public available. Please contact us or the author of [Parsin
 
 
 ## Detailed guidelines
-* **Basic use**: YFOptimizer(lr=1.0, mu=0.0) sets initial learnig rate and momentum to 1.0 and 0.0 respectively. This is the uniform setting (i.e. without tuning) for all our PyTorch and Tensorflow experiments. Typically, after a few thousand minibatches, the influence of these initial values diminishes.
-
-  * If the loss explodes after a very small number of iterations, you may want to lower the init lr to prevent the explosion at the beginining. 
-  
-  * We also have users reporting to use regularizer to avoid explosions.
+* **Basic use**: YFOptimizer() sets initial learnig rate and momentum to 1.0 and 0.0 respectively. This is the uniform setting (i.e. without tuning) for all our PyTorch and Tensorflow experiments. 
 
 * **Interface for manual finer control**: If you want to more finely control the learning rate, please use ```lr_factor``` in the YFOptimizer class. E.g. if you want to use a manually set constant learning rate, you can assign ```desired_lr / self._lr_var``` to ```self.lr_factor``` before applying the gradient at each iteration. If you want to use the typical lr-dropping technique after a ceritain number of epochs, please refer to the example [here](https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L139). 
 
