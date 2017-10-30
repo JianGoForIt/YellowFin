@@ -90,7 +90,7 @@ class Model():
                 self.optimizer = optimizer = tf.train.AdamOptimizer(self.lr)
             elif opt_method == "YF":
                 print("using YF, hmax log smooth", args.h_max_log_smooth)
-                self.optimizer = optimizer = YFOptimizer(h_max_log_smooth=args.h_max_log_smooth)
+                self.optimizer = optimizer = YFOptimizer()
             elif opt_method == "momSGD":
 		print("using momSGD")
                 self.optimizer = optimizer = tf.train.MomentumOptimizer(self.lr, 0.9)
