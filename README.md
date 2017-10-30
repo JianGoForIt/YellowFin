@@ -48,7 +48,7 @@ python CIFAR100-release.py (for CIFAR10)
 The experiments on multiple-layer LSTM on Penn Treebank can be launched using
 ```
 cd ptb/scripts
-python PTB-release.py
+python PTB-release.py --opt_method=YF --log_dir=path_to_log
 ```
 
 ### Run Char Rnn LSTM experiments
