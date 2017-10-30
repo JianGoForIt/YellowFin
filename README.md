@@ -53,7 +53,7 @@ python PTB-release.py
 The experiments on Char Rnn LSTM with TinyShakespeare dataset can be launched using
 ```
 cd char-rnn-tensorflow
-python train_YF.py --log_dir=path_to_log --data_dir=./data/tinyshakespeare/
+python train_YF.py --log_dir=path_to_log --data_dir=./data/tinyshakespeare/ --opt_method=YF
 ```
 
 ### Run constituency parsing LSTM experiments
