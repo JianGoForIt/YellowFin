@@ -25,7 +25,7 @@ parser.add_argument('--log_dir', type=str, default="results/", help="log folder"
 parser.add_argument('--h_max_log_smooth', action='store_true')
 
 args = parser.parse_args()
-print("use log smooth h_max ", args.h_max_log_smooth)
+#print("use log smooth h_max ", args.h_max_log_smooth)
 
 def construct_model(config, eval_config, raw_data, opt_method):
   train_data, valid_data, test_data, _ = raw_data
@@ -194,7 +194,7 @@ n_core=20
 #log_dir = general_log_dir + "/test-release-ptb"
 log_dir = args.log_dir
 if not os.path.isdir(log_dir):
-  os.mkdir(log_dir)
+  os.makedirs(log_dir)
 
 np.random.seed(args.seed)
 tf.set_random_seed(args.seed)
