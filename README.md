@@ -70,7 +70,7 @@ Note the WSJ is not public available. Please contact us or the author of [Parsin
 ## Detailed guidelines
 * **Basic use**: YFOptimizer() uses the uniform setting (i.e. without tuning) for all the PyTorch and Tensorflow experiments in our paper. 
 
-* **Interface for manual finer control**: If you want to more finely control the learning rate, please use ```lr_factor``` in the YFOptimizer class. E.g. if you want to use a manually set constant learning rate, you can assign ```desired_lr / self._lr_var``` to ```self.lr_factor``` before applying the gradient at each iteration. If you want to use the typical lr-dropping technique after a ceritain number of epochs, please refer to the example [here](https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L139). 
+* **Interface for manual finer control**: If you want to more finely control the learning rate, please use ```lr_factor``` in the YFOptimizer class. E.g. if you want to use a manually set constant learning rate, you can assign ```desired_lr / self._lr_var``` to ```self.lr_factor``` before applying the gradient at each iteration. If you want to use the typical lr-dropping technique after a ceritain number of epochs, please refer to the example [here](https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L139). **(The argument ```learning_rate``` and ```momentum``` are dummy, only for backward compatibility)**
 
 * **Gradient clipping**: The default setting uses adaptive gradient clipping to prevent gradient explosion, thresholding norm of gradient to the square root of our estimated maximal curvature. We recommend first fully turning off gradient clipping, and only turning it on when necessary. 
 
