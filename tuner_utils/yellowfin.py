@@ -93,7 +93,7 @@ class YFOptimizer(object):
 
     # the underlying momentum optimizer
     self._optimizer = tf.train.MomentumOptimizer(
-      self._lr_var * self.lr_factor, self._mu_var + delta_mu,
+      self._lr_var * self.lr_factor / (1 - self._mu_var), 0.0,
       use_locking, name, use_nesterov)
 
     # moving average for statistics
