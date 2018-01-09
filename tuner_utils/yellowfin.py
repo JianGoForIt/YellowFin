@@ -88,11 +88,6 @@ class YFOptimizer(object):
       self._clip_thresh_var = tf.Variable(
         clip_thresh, dtype=tf.float32, name="YF_clip_thresh",
         trainable=False)
-      # used to monitor `self._grads_norm` (global gradient norm)
-      # useful to more easily determine appropriate `clip_thresh` value
-      self.grad_global_norm_monitor = tf.Variable(
-        0.0, dtype=tf.float32, name="grad_global_norm_monitor",
-        trainable=False)
     else:
       self._clip_thresh_var = None
 
