@@ -96,6 +96,18 @@ class YFOptimizer(object):
     else:
       self._clip_thresh_var = None
 
+    # monitor gradient norm before and after clipping
+    self._grads_norm = 0.0
+    self._clipped_grads_norm = 0.0
+    self.grad_norm_monitor = tf.Variable(
+        self._grads_norm, dtype=tf.float32,
+        name="grad_norm_monitor",
+        trainable=False)
+    self.clipped_grad_norm_monitor = tf.Variable(
+        self._clipped_grads_norm, dtype=tf.float32,
+        name="clipped_grad_norm_monitor",
+        trainable=False)
+
     # the underlying momentum optimizer
     self._optimizer = tf.train.MomentumOptimizer(
       self._lr_var * self.lr_factor, self._mu_var + delta_mu,
@@ -361,6 +373,7 @@ class YFOptimizer(object):
     if self._clip_thresh_var is not None:
       self._grads, self._grads_norm = tf.clip_by_global_norm(
         self._grads, self._clip_thresh_var)
+      self._clipped_grads_norm = tf.global_norm(self._grads)
 
     # loosely adaptive clipping of gradient in case exploding gradient ruins statistics
     if self._use_adapt_grad_clip:
@@ -368,6 +381,7 @@ class YFOptimizer(object):
         lambda: tf.sqrt(self._stat_protect_fac * self._adapt_grad_clip_thresh**2),
         lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
       self._grads, self._grads_norm = tf.clip_by_global_norm(self._grads, thresh)
+      self._clipped_grads_norm = tf.global_norm(self._grads)
 
     with tf.variable_scope("before_apply"):
       before_apply_op = self.before_apply()
@@ -387,6 +401,7 @@ class YFOptimizer(object):
             lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
           self._grads, self._grads_norm = tf.clip_by_global_norm(
             self._grads, thresh)
+          self._clipped_grads_norm = tf.global_norm(self._grads)
 
         apply_grad_op = self._optimizer.apply_gradients(
           zip(self._grads, self._tvars), global_step, name)
@@ -399,12 +414,17 @@ class YFOptimizer(object):
         tf.assign(self._adapt_grad_clip_thresh, tf.sqrt(self._h_max) )
       self._adapt_grad_clip_target_val_op = \
         tf.assign(self._adapt_grad_clip_target_val, tf.sqrt(self._h_max) )
+      self._update_grad_norm_monitor = \
+        tf.assign(self.grad_norm_monitor, self._grads_norm )
+      self._update_clipped_grad_norm_monitor = \
+        tf.assign(self.clipped_grad_norm_monitor, self._clipped_grads_norm )
       # self._adapt_grad_clip_target_val_op = \
       #   tf.assign(self._adapt_grad_clip_target_val, tf.sqrt(tf.sqrt(self._h_max * self._h_min)))
 
     return tf.group(before_apply_op, update_hyper_op, apply_grad_op,
                     self._adapt_grad_clip_thresh_op, self._adapt_grad_clip_target_val_op,
-                    self._increment_global_step_op)
+                    self._increment_global_step_op, self._update_grad_norm_monitor,
+                    self._update_clipped_grad_norm_monitor)
 
 
   def compute_gradients(self, loss, var_list=None,
