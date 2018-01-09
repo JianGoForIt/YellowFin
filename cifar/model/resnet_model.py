@@ -42,7 +42,7 @@ HParams = namedtuple('HParams',
                      'batch_size, num_classes, '
                      'min_lrn_rate, lrn_rate, mom, clip_norm_base,'
                      'num_residual_units, use_bottleneck, weight_decay_rate, '
-                     'relu_leakiness, optimizer, model_scope')
+                     'relu_leakiness, optimizer, model_scope, h_max_log_smooth')
 
 
 class ResNet(object):
@@ -139,6 +139,7 @@ class ResNet(object):
 
   def _build_train_op(self):
     """Build training specific ops for the graph."""
+    print("using lr ", self.hps.lrn_rate)
     self.lrn_rate = tf.constant(self.hps.lrn_rate, tf.float32)
     tf.summary.scalar('learning_rate', self.lrn_rate)
 
@@ -147,20 +148,30 @@ class ResNet(object):
     self.grads = tf.gradients(self.cost, self.trainable_variables)
 
     if self.hps.optimizer == 'sgd':
+      print("using sgd", self.lrn_rate)
       optimizer = tf.train.GradientDescentOptimizer(self.lrn_rate)
       apply_op = optimizer.apply_gradients(
         zip(self.grads, self.trainable_variables),
         global_step=self.global_step, name='train_step')
     elif self.hps.optimizer == 'mom':
+      print("using mom", self.lrn_rate)
       optimizer = tf.train.MomentumOptimizer(self.lrn_rate, 0.9)
       apply_op = optimizer.apply_gradients(
         zip(self.grads, self.trainable_variables),
         global_step=self.global_step, name='train_step')
     elif self.hps.optimizer == 'YF':
       print("using YF")
-      self.optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
+      self.optimizer = YFOptimizer()
       apply_op = self.optimizer.apply_gradients(
         zip(self.grads, self.trainable_variables) )
+    elif self.hps.optimizer == "adam":
+      print("using adam", self.lrn_rate)
+      optimizer = tf.train.AdamOptimizer(self.lrn_rate)
+      apply_op = optimizer.apply_gradients(
+        zip(self.grads, self.trainable_variables),
+        global_step=self.global_step, name='train_step')
+    else:
+      raise Exception("The specified optimizer is not supported")
 
     train_ops = [apply_op] + self._extra_train_ops
     self.train_op = tf.group(*train_ops)

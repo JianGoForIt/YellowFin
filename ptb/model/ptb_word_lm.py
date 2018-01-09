@@ -164,6 +164,7 @@ class PTBModel(object):
     softmax_w = tf.get_variable(
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
+    
     logits = tf.matmul(output, softmax_w) + softmax_b
     loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(
         [logits],
@@ -184,8 +185,9 @@ class PTBModel(object):
 
     self.grads = tf.gradients(cost, tvars)
 
-    grads_clip, self.grad_norm = tf.clip_by_global_norm(self.grads, self._grad_norm_thresh)
+    grads_clip, self.grad_norm = tf.clip_by_global_norm(self.grads, 100000000.0)#self._grad_norm_thresh)
     if opt_method == 'sgd':
+      print("using sgd")
       optimizer = tf.train.GradientDescentOptimizer(self._lr)
       self._train_op = optimizer.apply_gradients(
           zip(grads_clip, tvars),
@@ -197,15 +199,23 @@ class PTBModel(object):
       self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars), 
         global_step=tf.contrib.framework.get_or_create_global_step())
     elif opt_method == 'adam':
+      print("using adam")
       optimizer = tf.train.AdamOptimizer(self._lr)
       self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars), 
         global_step=tf.contrib.framework.get_or_create_global_step())
     elif opt_method == 'YF':
-      optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
+      print("using YF")
+      #optimizer = YFOptimizer(learning_rate=1.0, momentum=0.0)
+      #print("h max log smooth", config.h_max_log_smooth)
+      self.optimizer = optimizer = YFOptimizer()
       self._train_op = optimizer.apply_gradients(zip(self.grads, tvars) )
+    elif opt_method == "adagrad":
+      print("using adagrad")
+      optimizer = tf.train.AdagradOptimizer(self._lr)
+      self._train_op = optimizer.apply_gradients(zip(grads_clip, tvars),
+        global_step=tf.contrib.framework.get_or_create_global_step())
     else:
       raise Exception("optimizer not supported")
-
 
     self._new_lr = tf.placeholder(
         tf.float32, shape=[], name="new_learning_rate")

@@ -52,9 +52,18 @@ def main():
                                                   Note: this file contains absolute paths, be careful when moving files around;
                             'model.ckpt-*'      : file(s) with model definition (created by tf)
                         """)
-    args = parser.parse_args()
-    train(args)
+    parser.add_argument('--opt_method', type=str, default="YF", help="the optimizer to use")
+    parser.add_argument('--seed', type=int, default=1, help="random seed for numpy and pytorch")
+    parser.add_argument('--h_max_log_smooth', action='store_true')
 
+    args = parser.parse_args()
+
+    np.random.seed(args.seed)
+    tf.set_random_seed(args.seed)
+    print("rand seed", args.seed)
+
+    #with tf.device("gpu:0"):
+    train(args)
 
 def train(args):
     data_loader = TextLoader(args.data_dir, args.batch_size, args.seq_length, partition='train')

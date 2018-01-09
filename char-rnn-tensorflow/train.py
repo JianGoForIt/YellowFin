@@ -52,10 +52,16 @@ def main():
                                                   Note: this file contains absolute paths, be careful when moving files around;
                             'model.ckpt-*'      : file(s) with model definition (created by tf)
                         """)
+    parser.add_argument('--opt_method', type=str, default="YF", help="the optimizer to use")
+    parser.add_argument('--seed', type=int, default=1, help="random seed for numpy and pytorch")
     args = parser.parse_args()
-    with tf.device("cpu:0"):
-        train(args)
 
+    np.random.seed(args.seed)
+    tf.set_random_seed(args.seed)
+    print("rand seed", args.seed)
+
+    #with tf.device("gpu:0"):
+    train(args)
 
 def train(args):
     data_loader = TextLoader(args.data_dir, args.batch_size, args.seq_length, partition='train')
@@ -93,14 +99,15 @@ def train(args):
         cPickle.dump((data_loader.chars, data_loader.vocab), f)
 
     # model = Model(args, opt_method="Adam")
-    model = Model(args, opt_method="SGD")
+    model = Model(args, opt_method=args.opt_method)
     loss_list = []
     eval_loss_list = []
-    gpu_mem_portion=0.005
+    gpu_mem_portion=0.3
     n_core = 16
-    with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=n_core,
-                          inter_op_parallelism_threads=n_core,
-                          gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_mem_portion))) as sess, tf.device("cpu:0") as devices:
+    with tf.Session() as sess:
+    #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=n_core,
+    #                      inter_op_parallelism_threads=n_core,
+    #                      gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_mem_portion))) as sess, tf.device("gpu:0") as devices:
         # instrument for tensorboard
         summaries = tf.summary.merge(model.train_summary)
         writer = tf.summary.FileWriter(

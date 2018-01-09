@@ -13,8 +13,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
-# eps for numerical stability
-eps = 1e-15
+# EPS for numerical stability
+EPS = 1e-6
+LARGE_FLOAT_VAL = 1e15
 
 class YFOptimizer(object):
   """
@@ -27,10 +28,12 @@ class YFOptimizer(object):
   GATE_OP = tf.train.Optimizer.GATE_OP
   GATE_GRAPH = tf.train.Optimizer.GATE_GRAPH
 
-  def __init__(self, learning_rate=0.1, momentum=0.0, clip_thresh=None,
+  def __init__(self, learning_rate=0.0001, momentum=0.0, clip_thresh=None,
                beta=0.999, curv_win_width=20, zero_debias=True, delta_mu=0.0,
-               sparsity_debias=True, use_locking=False, name="YellowFin",
-               use_nesterov=False):
+               sparsity_debias=False, use_locking=False, name="YellowFin",
+               use_nesterov=False, use_unsmoothed_lr_mu=True,
+               h_max_log_smooth=True, h_min_log_smooth=True,
+               use_adapt_grad_clip=True, stat_protect_fac=100.0):
     """
     Construct a new YellowFin optimizer.
 
@@ -71,7 +74,6 @@ class YFOptimizer(object):
       `lr_factor` can be found here:
       https://github.com/JianGoForIt/YellowFin/blob/master/char-rnn-tensorflow/train_YF.py#L140
     """
-
     self._lr = learning_rate
     self._mu = momentum
 
@@ -106,8 +108,7 @@ class YFOptimizer(object):
     # for global step counting
     self._global_step = tf.Variable(0, trainable=False)
 
-    # for conditional tuning
-    self._do_tune = tf.greater(self._global_step, tf.constant(0))
+    self._do_tune = tf.greater(self._global_step, tf.constant(0) )
 
     self._zero_debias = zero_debias
     self._sparsity_debias = sparsity_debias
@@ -118,32 +119,67 @@ class YFOptimizer(object):
     self._curv_win_width = curv_win_width
     self._curv_win = None
 
+    # option for using smoothed or unsmoothed lr and mu
+    self._use_unsmoothed_lr_mu = use_unsmoothed_lr_mu
+
+    # options for curvature envelop smoothing
+    self._h_max_log_smooth = h_max_log_smooth
+    self._h_min_log_smooth = h_min_log_smooth
+
+    # for adaptive gradient clipping
+    self._use_adapt_grad_clip = use_adapt_grad_clip
+    self._adapt_grad_clip_thresh = \
+      tf.Variable(LARGE_FLOAT_VAL, dtype=tf.float32, trainable=False)
+    self._adapt_grad_clip_target_val = \
+      tf.Variable(LARGE_FLOAT_VAL, dtype=tf.float32, trainable=False)
+
+    # prevent exploding gradient from ruining the statistics
+    self._stat_protect_fac = stat_protect_fac
+
   def curvature_range(self):
     # set up the curvature window
     self._curv_win = tf.Variable(
       np.zeros([self._curv_win_width, ]), dtype=tf.float32,
       name="curv_win", trainable=False)
-    # we use log smoothing for curvature range
+    # we can use log smoothing for curvature range to follow trend faster
+    # self._curv_win = tf.scatter_update(
+    #   self._curv_win, self._global_step % self._curv_win_width,
+    #   tf.log(self._grad_norm_squared + EPS))
     self._curv_win = tf.scatter_update(
       self._curv_win, self._global_step % self._curv_win_width,
-      tf.log(self._grad_norm_squared + eps))
+      self._grad_norm_squared + EPS)
     # note here the iterations start from iteration 0
     valid_window = tf.slice(
       self._curv_win, tf.constant([0, ]), tf.expand_dims(
         tf.minimum(tf.constant(self._curv_win_width),
                    self._global_step + 1), dim=0))
-    self._h_min_t = tf.reduce_min(valid_window)
-    self._h_max_t = tf.reduce_max(valid_window)
+
+    if self._h_min_log_smooth:
+      self._h_min_t = tf.log(tf.reduce_min(valid_window) + EPS)
+    else:
+      self._h_min_t = tf.reduce_min(valid_window)
+    if self._h_max_log_smooth:
+      self._h_max_t = tf.log(tf.reduce_max(valid_window) + EPS)
+    else:
+      self._h_max_t = tf.reduce_max(valid_window)
 
     curv_range_ops = []
-    with tf.control_dependencies([self._h_min_t, self._h_max_t]):
+    with tf.control_dependencies([self._h_min_t, self._h_max_t] ):
       avg_op = self._moving_averager.apply(
         [self._h_min_t, self._h_max_t])
       with tf.control_dependencies([avg_op]):
-        self._h_min = tf.exp(
-          tf.identity(self._moving_averager.average(self._h_min_t)))
-        self._h_max = tf.exp(
-          tf.identity(self._moving_averager.average(self._h_max_t)))
+        if self._h_min_log_smooth:
+          self._h_min = tf.exp(
+            tf.identity(self._moving_averager.average(self._h_min_t)))
+        else:
+          self._h_min = \
+            tf.identity(self._moving_averager.average(self._h_min_t))
+        if self._h_max_log_smooth:
+          self._h_max = tf.exp(
+            tf.identity(self._moving_averager.average(self._h_max_t)))
+        else:
+          self._h_max = \
+            tf.identity(self._moving_averager.average(self._h_max_t))
       if self._sparsity_debias:
         self._h_min = self._h_min * self._sparsity_avg
         self._h_max = self._h_max * self._sparsity_avg
@@ -168,9 +204,9 @@ class YFOptimizer(object):
         self._moving_averager.average(val) for val in tensor_to_avg]
       self._grad_avg_squared = [tf.square(val) for val in self._grad_avg]
     self._grad_var = tf.maximum(
-      tf.constant(eps, dtype=self._grad_norm_squared_avg.dtype),
+      tf.constant(EPS, dtype=self._grad_norm_squared_avg.dtype),
       self._grad_norm_squared_avg
-      - tf.add_n([tf.reduce_sum(val) for val in self._grad_avg_squared]))
+      - tf.add_n([tf.reduce_sum(val) for val in self._grad_avg_squared] ) )
     if self._sparsity_debias:
       self._grad_var *= self._sparsity_avg
     return grad_var_ops
@@ -187,7 +223,7 @@ class YFOptimizer(object):
       # single iteration distance estimation
       # note that self._grad_norm_avg is per variable
       self._dist_to_opt = (self._grad_norm_avg
-                 / (self._grad_norm_squared_avg + eps) )
+                 / (self._grad_norm_squared_avg + EPS) )
     # running average of distance
     avg_op = self._moving_averager.apply([self._dist_to_opt])
     dist_to_opt_ops.append(avg_op)
@@ -195,7 +231,7 @@ class YFOptimizer(object):
       self._dist_to_opt_avg = tf.identity(
         self._moving_averager.average(self._dist_to_opt))
       if self._sparsity_debias:
-        self._dist_to_opt_avg /= (tf.sqrt(self._sparsity_avg) + eps)
+        self._dist_to_opt_avg /= (tf.sqrt(self._sparsity_avg) + EPS)
     return dist_to_opt_ops
 
   def grad_sparsity(self):
@@ -214,11 +250,11 @@ class YFOptimizer(object):
       self._sparsity_avg = self._moving_averager.average(self._sparsity)
     return avg_op
 
-  def after_apply(self):
+  def before_apply(self):
     self._moving_averager = tf.train.ExponentialMovingAverage(
       decay=self._beta, zero_debias=self._zero_debias)
     assert self._grads is not None and len(self._grads) > 0
-    after_apply_ops = []
+    before_apply_ops = []
 
     # get per var g**2 and norm**2
     self._grad_squared = []
@@ -233,7 +269,7 @@ class YFOptimizer(object):
 
     if self._sparsity_debias:
       avg_op_sparsity = self.grad_sparsity()
-      after_apply_ops.append(avg_op_sparsity)
+      before_apply_ops.append(avg_op_sparsity)
 
     # the following running average on squared norm of gradient is shared
     # by `grad_variance` and `dist_to_opt`
@@ -243,20 +279,20 @@ class YFOptimizer(object):
                                      for val in self._grad_norm_squared]
       self._grad_norm_squared = tf.add_n(self._grad_norm_squared)
       self._grad_norm_squared_avg = tf.add_n(self._grad_norm_squared_avg)
-    after_apply_ops.append(avg_op)
+    before_apply_ops.append(avg_op)
 
     with tf.control_dependencies([avg_op]):
       curv_range_ops = self.curvature_range()
-      after_apply_ops += curv_range_ops
+      before_apply_ops += curv_range_ops
       grad_var_ops = self.grad_variance()
-      after_apply_ops += grad_var_ops
+      before_apply_ops += grad_var_ops
       dist_to_opt_ops = self.dist_to_opt()
-      after_apply_ops += dist_to_opt_ops
-
-    return tf.group(*after_apply_ops)
+      before_apply_ops += dist_to_opt_ops
+    return tf.group(*before_apply_ops)
 
   def get_lr_tensor(self):
-    lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + eps)
+    lr = (1.0 - tf.sqrt(self._mu))**2 / (self._h_min + EPS)
+    lr = tf.minimum(lr, lr * (tf.to_float(self._global_step) + 1.0) / 10.0 / tf.to_float(tf.constant(self._curv_win_width) ) )
     return lr
 
   def get_cubic_root(self):
@@ -276,17 +312,17 @@ class YFOptimizer(object):
     #   tf.Assert(tf.logical_not(tf.is_inf(self._h_min) ), [self._h_min,]),
     #   tf.Assert(tf.logical_not(tf.is_inf(self._grad_var) ), [self._grad_var,])]
     # with tf.control_dependencies(assert_array):
-    # eps in the numerator to prevent momentum being exactly one in case of 0 gradient
-    p = (self._dist_to_opt_avg + eps)**2 * (self._h_min + eps)**2 / 2 / (self._grad_var + eps)
+    # EPS in the numerator to prevent momentum being exactly one in case of 0 gradient
+    p = (self._dist_to_opt_avg + EPS)**2 * (self._h_min + EPS)**2 / 2 / (self._grad_var + EPS)
     w3 = (-tf.sqrt(p**2 + 4.0 / 27.0 * p**3) - p) / 2.0
     w = tf.sign(w3) * tf.pow(tf.abs(w3), 1.0/3.0)
-    y = w - p / 3.0 / (w + eps)
+    y = w - p / 3.0 / (w + EPS)
     x = y + 1
     return x
 
   def get_mu_tensor(self):
     root = self.get_cubic_root()
-    dr = self._h_max / self._h_min
+    dr = tf.maximum( (self._h_max + EPS) / (self._h_min + EPS), 1.0 + EPS)
     mu = tf.maximum(
       root**2, ((tf.sqrt(dr) - 1) / (tf.sqrt(dr) + 1))**2)
     return mu
@@ -302,10 +338,15 @@ class YFOptimizer(object):
         lambda: self._lr_var))
 
     with tf.control_dependencies([self._mu, self._lr]):
-      self._mu = self._beta * self._mu_var + (1 - self._beta) * self._mu
-      self._lr = self._beta * self._lr_var + (1 - self._beta) * self._lr
-      assign_hyper_ops.append(tf.assign(self._mu_var, self._mu))
-      assign_hyper_ops.append(tf.assign(self._lr_var, self._lr))
+      if self._use_unsmoothed_lr_mu:
+        assign_hyper_ops.append(tf.assign(self._mu_var, self._mu) )
+        assign_hyper_ops.append(tf.assign(self._lr_var, self._lr) )
+      else:
+        self._mu = self._beta * self._mu_var + (1 - self._beta) * self._mu
+        self._lr = self._beta * self._lr_var + (1 - self._beta) * self._lr
+        with tf.control_dependencies([self._mu, self._lr] ):
+          assign_hyper_ops.append(tf.assign(self._mu_var, self._mu) )
+          assign_hyper_ops.append(tf.assign(self._lr_var, self._lr) )
     assign_hyper_op = tf.group(*assign_hyper_ops)
     return assign_hyper_op
 
@@ -316,38 +357,55 @@ class YFOptimizer(object):
     self._grads, self._tvars = zip(
       *[(g, t) for g, t in grads_tvars if g is not None])
 
-    with tf.variable_scope("apply_updates"):
-      if self._clip_thresh_var is not None:
-        self._grads, self._grads_norm = tf.clip_by_global_norm(
-          self._grads, self._clip_thresh_var)
-        apply_grad_op = self._optimizer.apply_gradients(
-          zip(self._grads, self._tvars), global_step, name)
-        grad_monitor_op = tf.assign(
-          self.grad_global_norm_monitor, self._grads_norm)
-      else:
-        apply_grad_op = self._optimizer.apply_gradients(
-          zip(self._grads, self._tvars), global_step, name)
-        grad_monitor_op = tf.no_op()
+    # for manual gradient clipping
+    if self._clip_thresh_var is not None:
+      self._grads, self._grads_norm = tf.clip_by_global_norm(
+        self._grads, self._clip_thresh_var)
 
-    with tf.variable_scope("after_apply"):
-      # the dependencies ideally only need to be after clip is done,
-      # i.e. dependes on self._grads. However, the control_dependencies
-      # does not support indexed slice for sparse gradients.
-      # The alternative dependencies here might be slightly slower due
-      # to less parallelization.
-      with tf.control_dependencies([apply_grad_op, grad_monitor_op]):
-        after_apply_op = self.after_apply()
+    # loosely adaptive clipping of gradient in case exploding gradient ruins statistics
+    if self._use_adapt_grad_clip:
+      thresh = tf.cond(self._do_tune,
+        lambda: tf.sqrt(self._stat_protect_fac * self._adapt_grad_clip_thresh**2),
+        lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
+      self._grads, self._grads_norm = tf.clip_by_global_norm(self._grads, thresh)
+
+    with tf.variable_scope("before_apply"):
+      before_apply_op = self.before_apply()
 
     with tf.variable_scope("update_hyper"):
-      with tf.control_dependencies([after_apply_op]):
+      with tf.control_dependencies([before_apply_op]):
         update_hyper_op = self.update_hyper_param()
 
-    with tf.control_dependencies([update_hyper_op]):
+    with tf.variable_scope("apply_updates"):
+      with tf.control_dependencies([update_hyper_op]):
+
+        # clip exploding gradient according to h_max
+        if self._use_adapt_grad_clip:
+          thresh = tf.cond(tf.greater(tf.global_norm(self._grads),
+            self._adapt_grad_clip_thresh),
+            lambda: self._adapt_grad_clip_target_val,
+            lambda: tf.to_float(tf.constant(LARGE_FLOAT_VAL)))
+          self._grads, self._grads_norm = tf.clip_by_global_norm(
+            self._grads, thresh)
+
+        apply_grad_op = self._optimizer.apply_gradients(
+          zip(self._grads, self._tvars), global_step, name)
+
+    with tf.control_dependencies([apply_grad_op]):
       self._increment_global_step_op = tf.assign(
         self._global_step, self._global_step + 1)
 
-    return tf.group(apply_grad_op, after_apply_op, update_hyper_op,
+      self._adapt_grad_clip_thresh_op = \
+        tf.assign(self._adapt_grad_clip_thresh, tf.sqrt(self._h_max) )
+      self._adapt_grad_clip_target_val_op = \
+        tf.assign(self._adapt_grad_clip_target_val, tf.sqrt(self._h_max) )
+      # self._adapt_grad_clip_target_val_op = \
+      #   tf.assign(self._adapt_grad_clip_target_val, tf.sqrt(tf.sqrt(self._h_max * self._h_min)))
+
+    return tf.group(before_apply_op, update_hyper_op, apply_grad_op,
+                    self._adapt_grad_clip_thresh_op, self._adapt_grad_clip_target_val_op,
                     self._increment_global_step_op)
+
 
   def compute_gradients(self, loss, var_list=None,
                         gate_gradients=GATE_OP,
